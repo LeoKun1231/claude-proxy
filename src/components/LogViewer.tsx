@@ -2,7 +2,7 @@
  * 日志查看器组件
  * 增强版：支持过滤、暂停、统计
  */
-import { useState, useRef, useEffect, memo } from 'react';
+import { useState, useRef, useEffect, memo, useMemo, useCallback } from 'react';
 import { Button, Empty, Space, Tag, Tooltip, Segmented } from 'antd';
 import { ClearOutlined, PauseCircleOutlined, PlayCircleOutlined, DownOutlined } from '@ant-design/icons';
 
@@ -19,7 +19,7 @@ interface LogViewerProps {
 }
 
 // 单条日志 - 使用 memo 优化渲染
-const LogEntry = memo(({ log, index }: { log: LogItem; index: number }) => {
+const LogEntry = memo(({ log }: { log: LogItem }) => {
     const typeColors = {
         info: '#52c41a',
         warn: '#faad14',
@@ -80,17 +80,26 @@ function LogViewer({ logs, onClear }: LogViewerProps) {
     const autoScrollRef = useRef(true);
 
     // 过滤日志
-    const filteredLogs = filter === 'all'
-        ? logs
-        : logs.filter(log => log.type === filter);
+    const filteredLogs = useMemo(() => {
+        if (filter === 'all') {
+            return logs;
+        }
+        return logs.filter(log => log.type === filter);
+    }, [filter, logs]);
 
     // 统计
-    const stats = {
-        total: logs.length,
-        info: logs.filter(l => l.type === 'info').length,
-        warn: logs.filter(l => l.type === 'warn').length,
-        error: logs.filter(l => l.type === 'error').length,
-    };
+    const stats = useMemo(() => {
+        return logs.reduce(
+            (acc, item) => {
+                acc.total += 1;
+                if (item.type === 'info') acc.info += 1;
+                if (item.type === 'warn') acc.warn += 1;
+                if (item.type === 'error') acc.error += 1;
+                return acc;
+            },
+            { total: 0, info: 0, warn: 0, error: 0 }
+        );
+    }, [logs]);
 
     // 自动滚动
     useEffect(() => {
@@ -100,22 +109,23 @@ function LogViewer({ logs, onClear }: LogViewerProps) {
     }, [filteredLogs.length, isPaused]);
 
     // 监听滚动
-    const handleScroll = () => {
+    const handleScroll = useCallback(() => {
         if (!containerRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
         const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
         autoScrollRef.current = isAtBottom;
-        setShowScrollButton(!isAtBottom && filteredLogs.length > 5);
-    };
+        const nextShowScrollButton = !isAtBottom && filteredLogs.length > 5;
+        setShowScrollButton(prev => (prev === nextShowScrollButton ? prev : nextShowScrollButton));
+    }, [filteredLogs.length]);
 
     // 滚动到底部
-    const scrollToBottom = () => {
+    const scrollToBottom = useCallback(() => {
         if (containerRef.current) {
             containerRef.current.scrollTop = containerRef.current.scrollHeight;
             autoScrollRef.current = true;
             setShowScrollButton(false);
         }
-    };
+    }, []);
 
     if (logs.length === 0) {
         return (
@@ -206,7 +216,6 @@ function LogViewer({ logs, onClear }: LogViewerProps) {
                     <LogEntry
                         key={log.id || `${log.timestamp}_${index}`}
                         log={log}
-                        index={index}
                     />
                 ))}
             </div>

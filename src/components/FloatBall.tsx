@@ -1,8 +1,8 @@
 /**
  * 悬浮球组件 - 极简纯球版
  */
-import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
-import { Tooltip, ConfigProvider, theme } from 'antd';
+import { useState, useEffect, useCallback, memo, useRef } from 'react';
+import { ConfigProvider, theme } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
 import './FloatBall.css';
 
@@ -42,13 +42,13 @@ function FloatBall() {
                 return prev;
             });
 
+            const customNames: Record<string, string> = {};
             if (allConfig.providers?.customProviders) {
-                const customNames: Record<string, string> = {};
                 allConfig.providers.customProviders.forEach((p: any) => {
                     customNames[p.id] = p.name;
                 });
-                setProviderNames(prev => ({ ...BUILTIN_PROVIDER_NAMES, ...customNames }));
             }
+            setProviderNames({ ...BUILTIN_PROVIDER_NAMES, ...customNames });
         } catch (error) {
             console.error('加载数据失败:', error);
         }
@@ -60,6 +60,7 @@ function FloatBall() {
         loadData();
 
         window.electronAPI.onConfigImported?.(() => loadData());
+        window.electronAPI.onConfigUpdated?.(() => loadData());
         window.electronAPI.onContextMenuCommand?.(async (value) => {
             try {
                 await window.electronAPI.setMapping('main', value);
@@ -74,10 +75,11 @@ function FloatBall() {
         return () => {
             clearInterval(interval);
             window.electronAPI.removeContextMenuListener?.();
+            window.electronAPI.removeConfigImportedListener?.();
+            window.electronAPI.removeConfigUpdatedListener?.();
         };
     }, [loadData]);
 
-    const handleHide = useCallback(() => window.electronAPI.hideFloatWindow?.(), []);
     const handleOpenMain = useCallback(() => window.electronAPI.showMainWindow?.(), []);
 
     const formatOptionLabel = useCallback((target: string) => {
@@ -95,44 +97,6 @@ function FloatBall() {
         }));
         window.electronAPI.showContextMenu(menuOptions);
     }, [targets, formatOptionLabel, mainMapping]);
-
-    // 当前模型简称
-    const currentModelInfo = useMemo(() => {
-        if (mainMapping === 'pass') return '透传模式';
-        const parts = mainMapping.split(':');
-        if (parts.length >= 2) {
-            const providerKey = parts[0];
-            const model = parts[1];
-            const providerName = providerNames[providerKey] || providerKey;
-            return `${providerName} · ${model}`;
-        }
-        return mainMapping;
-    }, [mainMapping, providerNames]);
-
-    // 切换到下一个模型
-    const handleNextModel = async () => {
-        if (targets.length <= 1) return;
-
-        const currentIndex = targets.indexOf(mainMapping);
-        const nextIndex = (currentIndex + 1) % targets.length;
-        const nextTarget = targets[nextIndex];
-
-        try {
-            // 乐观更新
-            setMainMapping(nextTarget);
-
-            // 执行切换
-            await window.electronAPI.setMapping('main', nextTarget);
-            await window.electronAPI.setMapping('haiku', nextTarget);
-            await window.electronAPI.restartProxy();
-
-            // 重新加载以确认
-            loadData();
-        } catch (error) {
-            console.error('切换失败:', error);
-            loadData(); // 回滚
-        }
-    };
 
     // 拖拽 + 点击处理
     const dragState = useRef({

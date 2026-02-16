@@ -27,6 +27,16 @@ let floatWin: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
 
+// 广播配置变更，确保主窗口和悬浮球都能实时刷新
+function broadcastConfigUpdated(key: string) {
+    const payload = { key, updatedAt: Date.now() };
+    for (const windowInstance of BrowserWindow.getAllWindows()) {
+        if (!windowInstance.isDestroyed()) {
+            windowInstance.webContents.send('config-updated', payload);
+        }
+    }
+}
+
 // Here, you can also use other preload
 const preload = path.join(__dirname, 'preload.js')
 const url = process.env.VITE_DEV_SERVER_URL
@@ -148,7 +158,11 @@ function createFloatWindow() {
 
 // Config
 ipcMain.handle('get-config', (_, key) => store.get(key));
-ipcMain.handle('set-config', (_, key, value) => store.set(key, value));
+ipcMain.handle('set-config', (_, key, value) => {
+    store.set(key, value);
+    broadcastConfigUpdated(key);
+    return true;
+});
 ipcMain.handle('get-all-config', () => store.store);
 
 // 开机自启

@@ -18,7 +18,7 @@ import ModelMapping from './components/ModelMapping';
 import ProviderConfig from './components/ProviderConfig';
 import LogViewer from './components/LogViewer';
 import FloatBall from './components/FloatBall';
-import { useProxyStatus, useLogs, LogItem } from './hooks';
+import { useProxyStatus, useLogs } from './hooks';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
@@ -42,8 +42,7 @@ function App() {
         fastPollCount: 3,
         fastPollInterval: 1000,
     });
-
-    const [logs, setLogs] = useState<LogItem[]>([]);
+    const { logs, clearLogs } = useLogs({ maxLogs: 200, autoScroll: false });
     const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     // 检查是否是悬浮球模式
@@ -53,43 +52,43 @@ function App() {
     }
 
     // 启动代理
-    const handleStart = async () => {
+    const handleStart = useCallback(async () => {
         const result = await start();
         if (result.success) {
             message.success(`代理服务器已启动 (端口: ${result.port})`);
         } else {
             message.error(result.error || '启动失败');
         }
-    };
+    }, [start]);
 
     // 停止代理
-    const handleStop = async () => {
+    const handleStop = useCallback(async () => {
         await stop();
         message.success('代理服务器已停止');
-    };
+    }, [stop]);
 
     // 重启代理
-    const handleRestart = async () => {
+    const handleRestart = useCallback(async () => {
         const result = await restart();
         if (result.success) {
             message.success('代理服务器已重启');
         } else {
             message.error(result.error || '重启失败');
         }
-    };
+    }, [restart]);
 
     // 导出配置
-    const handleExport = async () => {
+    const handleExport = useCallback(async () => {
         const result = await window.electronAPI.exportConfig();
         if (result.success) {
             message.success('配置已导出');
         } else if (result.error !== '已取消') {
             message.error('导出失败: ' + result.error);
         }
-    };
+    }, []);
 
     // 导入配置
-    const handleImport = async () => {
+    const handleImport = useCallback(async () => {
         const result = await window.electronAPI.importConfig();
         if (result.success) {
             message.success('配置已导入，页面将刷新');
@@ -97,35 +96,22 @@ function App() {
         } else if (result.error !== '已取消') {
             message.error('导入失败: ' + result.error);
         }
-    };
+    }, []);
 
     // 悬浮球控制
-    const showFloatWindow = () => window.electronAPI.showFloatWindow?.();
-    const hideFloatWindow = () => window.electronAPI.hideFloatWindow?.();
+    const showFloatWindow = useCallback(() => {
+        window.electronAPI.showFloatWindow?.();
+    }, []);
+    const hideFloatWindow = useCallback(() => {
+        window.electronAPI.hideFloatWindow?.();
+    }, []);
 
-    // 日志监听
+    // 初始加载状态
     useEffect(() => {
-        const handleLog = (data: any) => {
-            const logItem: LogItem = {
-                id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                message: data.message,
-                type: data.type,
-                timestamp: data.timestamp,
-            };
-            setLogs(prev => {
-                const updated = [...prev, logItem];
-                // 限制日志数量
-                return updated.length > 200 ? updated.slice(-200) : updated;
-            });
-        };
-
-        window.electronAPI.onProxyLog(handleLog);
-
-        // 初始加载完成
-        setTimeout(() => setIsInitialLoad(false), 300);
+        const timerId = window.setTimeout(() => setIsInitialLoad(false), 300);
 
         return () => {
-            window.electronAPI.removeProxyLogListener();
+            window.clearTimeout(timerId);
         };
     }, []);
 
@@ -136,7 +122,7 @@ function App() {
         { type: 'divider' as const },
         { key: 'showFloat', label: '显示悬浮球', icon: <EyeOutlined />, onClick: showFloatWindow },
         { key: 'hideFloat', label: '隐藏悬浮球', icon: <EyeInvisibleOutlined />, onClick: hideFloatWindow },
-    ], []);
+    ], [handleExport, handleImport, showFloatWindow, hideFloatWindow]);
 
     return (
         <ConfigProvider
@@ -331,7 +317,7 @@ function App() {
                                         style={cardStyle}
                                         headStyle={cardHeadStyle}
                                     >
-                                        <LogViewer logs={logs} onClear={() => setLogs([])} />
+                                        <LogViewer logs={logs} onClear={clearLogs} />
                                     </Card>
                                 </Space>
                             </Col>

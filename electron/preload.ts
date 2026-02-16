@@ -27,7 +27,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeContextMenuListener: () => ipcRenderer.removeAllListeners('context-menu-command'),
     onProxyLog: (callback: any) => ipcRenderer.on('proxy-log', (_event, data) => callback(data)),
     removeProxyLogListener: () => ipcRenderer.removeAllListeners('proxy-log'),
+    onConfigUpdated: (callback: any) => ipcRenderer.on('config-updated', (_event, payload) => callback(payload)),
+    removeConfigUpdatedListener: () => ipcRenderer.removeAllListeners('config-updated'),
     onConfigImported: (callback: any) => ipcRenderer.on('config-imported', () => callback()),
+    removeConfigImportedListener: () => ipcRenderer.removeAllListeners('config-imported'),
 })
 
 window.addEventListener('DOMContentLoaded', () => {

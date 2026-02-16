@@ -38,21 +38,45 @@ export function useProxyStatus(options: UseProxyStatusOptions = {}) {
     const fastPollCountRef = useRef(0);
     const timerRef = useRef<number | null>(null);
     const isVisibleRef = useRef(true);
+    const statusRef = useRef<ProxyStatus>(status);
+    const isMountedRef = useRef(true);
+    const isFetchingRef = useRef(false);
+
+    useEffect(() => {
+        statusRef.current = status;
+    }, [status]);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     // 获取状态
     const fetchStatus = useCallback(async () => {
+        if (isFetchingRef.current) {
+            return;
+        }
+
+        isFetchingRef.current = true;
         try {
             const newStatus = await window.electronAPI.getProxyStatus();
-            setStatus(prev => {
-                // 仅状态变化时更新，减少渲染
-                if (prev.running !== newStatus.running || prev.port !== newStatus.port) {
-                    return newStatus;
-                }
-                return prev;
-            });
-            setError(null);
+            if (isMountedRef.current) {
+                setStatus(prev => {
+                    // 仅状态变化时更新，减少渲染
+                    if (prev.running !== newStatus.running || prev.port !== newStatus.port) {
+                        return newStatus;
+                    }
+                    return prev;
+                });
+                setError(null);
+            }
         } catch (err: any) {
-            setError(err.message || '获取状态失败');
+            if (isMountedRef.current) {
+                setError(err.message || '获取状态失败');
+            }
+        } finally {
+            isFetchingRef.current = false;
         }
     }, []);
 
@@ -70,11 +94,11 @@ export function useProxyStatus(options: UseProxyStatusOptions = {}) {
             return result;
         } catch (err: any) {
             setError(err.message);
-            return { success: false, error: err.message, port: status.port };
+            return { success: false, error: err.message, port: statusRef.current.port };
         } finally {
             setLoading(false);
         }
-    }, [opts.fastPollCount, status.port]);
+    }, [opts.fastPollCount]);
 
     // 停止代理
     const stop = useCallback(async () => {
@@ -104,11 +128,11 @@ export function useProxyStatus(options: UseProxyStatusOptions = {}) {
             return result;
         } catch (err: any) {
             setError(err.message);
-            return { success: false, error: err.message, port: status.port };
+            return { success: false, error: err.message, port: statusRef.current.port };
         } finally {
             setLoading(false);
         }
-    }, [opts.fastPollCount, status.port]);
+    }, [opts.fastPollCount]);
 
     // 智能轮询
     useEffect(() => {

@@ -36,7 +36,10 @@ interface ElectronAPI {
     removeContextMenuListener: () => void;
     onProxyLog: (callback: (data: { message: string; type: string; timestamp: string }) => void) => void;
     removeProxyLogListener: () => void;
+    onConfigUpdated: (callback: (payload: { key: string; updatedAt: number }) => void) => void;
+    removeConfigUpdatedListener: () => void;
     onConfigImported: (callback: () => void) => void;
+    removeConfigImportedListener: () => void;
 }
 
 declare global {

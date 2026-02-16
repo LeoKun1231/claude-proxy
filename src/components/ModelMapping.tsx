@@ -39,6 +39,20 @@ function ModelMapping({ onMappingChange }: ModelMappingProps) {
     // 初始加载
     useEffect(() => {
         loadData();
+
+        const handleConfigUpdate = () => {
+            loadData();
+        };
+
+        window.electronAPI.onConfigUpdated?.(handleConfigUpdate);
+        window.electronAPI.onConfigImported?.(handleConfigUpdate);
+        window.addEventListener('focus', handleConfigUpdate);
+
+        return () => {
+            window.electronAPI.removeConfigUpdatedListener?.();
+            window.electronAPI.removeConfigImportedListener?.();
+            window.removeEventListener('focus', handleConfigUpdate);
+        };
     }, [loadData]);
 
     // 刷新

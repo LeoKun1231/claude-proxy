@@ -2,7 +2,7 @@
  * 日志管理 Hook
  * 优化日志存储，支持虚拟滚动准备
  */
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 export interface LogItem {
     id: string;
@@ -26,7 +26,8 @@ const defaultOptions: UseLogsOptions = {
 let logIdCounter = 0;
 
 export function useLogs(options: UseLogsOptions = {}) {
-    const opts = { ...defaultOptions, ...options };
+    const maxLogs = options.maxLogs ?? defaultOptions.maxLogs!;
+    const autoScroll = options.autoScroll ?? defaultOptions.autoScroll!;
 
     const [logs, setLogs] = useState<LogItem[]>([]);
     const [isPaused, setIsPaused] = useState(false);
@@ -43,20 +44,20 @@ export function useLogs(options: UseLogsOptions = {}) {
         if (isPaused) {
             // 暂停时缓存日志
             pendingLogsRef.current.push(newLog);
-            if (pendingLogsRef.current.length > opts.maxLogs!) {
-                pendingLogsRef.current = pendingLogsRef.current.slice(-opts.maxLogs!);
+            if (pendingLogsRef.current.length > maxLogs) {
+                pendingLogsRef.current = pendingLogsRef.current.slice(-maxLogs);
             }
         } else {
             setLogs(prev => {
                 const updated = [...prev, newLog];
                 // 限制日志数量
-                if (updated.length > opts.maxLogs!) {
-                    return updated.slice(-opts.maxLogs!);
+                if (updated.length > maxLogs) {
+                    return updated.slice(-maxLogs);
                 }
                 return updated;
             });
         }
-    }, [isPaused, opts.maxLogs]);
+    }, [isPaused, maxLogs]);
 
     // 清空日志
     const clearLogs = useCallback(() => {
@@ -72,15 +73,15 @@ export function useLogs(options: UseLogsOptions = {}) {
                 setLogs(currentLogs => {
                     const merged = [...currentLogs, ...pendingLogsRef.current];
                     pendingLogsRef.current = [];
-                    if (merged.length > opts.maxLogs!) {
-                        return merged.slice(-opts.maxLogs!);
+                    if (merged.length > maxLogs) {
+                        return merged.slice(-maxLogs);
                     }
                     return merged;
                 });
             }
             return !prev;
         });
-    }, [opts.maxLogs]);
+    }, [maxLogs]);
 
     // 过滤日志
     const getFilteredLogs = useCallback((filter?: 'info' | 'warn' | 'error') => {
@@ -89,13 +90,15 @@ export function useLogs(options: UseLogsOptions = {}) {
     }, [logs]);
 
     // 统计
-    const stats = {
-        total: logs.length,
-        info: logs.filter(l => l.type === 'info').length,
-        warn: logs.filter(l => l.type === 'warn').length,
-        error: logs.filter(l => l.type === 'error').length,
-        pending: pendingLogsRef.current.length,
-    };
+    const stats = useMemo(() => {
+        const base = { total: logs.length, info: 0, warn: 0, error: 0, pending: pendingLogsRef.current.length };
+        for (const log of logs) {
+            if (log.type === 'info') base.info += 1;
+            if (log.type === 'warn') base.warn += 1;
+            if (log.type === 'error') base.error += 1;
+        }
+        return base;
+    }, [logs]);
 
     // 监听日志事件
     useEffect(() => {
@@ -112,10 +115,10 @@ export function useLogs(options: UseLogsOptions = {}) {
 
     // 自动滚动
     useEffect(() => {
-        if (opts.autoScroll && scrollContainerRef.current && !isPaused) {
+        if (autoScroll && scrollContainerRef.current && !isPaused) {
             scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
         }
-    }, [logs, opts.autoScroll, isPaused]);
+    }, [logs, autoScroll, isPaused]);
 
     return {
         logs,
