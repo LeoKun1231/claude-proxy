@@ -16,7 +16,8 @@ const { Text, Paragraph } = Typography;
 
 // 当前预期端口 (应该动态获取，这里先硬编码或者从 proxyStatus 拿)
 const EXPECTED_URL = 'http://127.0.0.1:5055';
-const SET_ENV_COMMAND = `export ANTHROPIC_BASE_URL=${EXPECTED_URL}
+const SET_ENV_COMMAND = `unset ANTHROPIC_AUTH_TOKEN
+export ANTHROPIC_BASE_URL=${EXPECTED_URL}
 export ANTHROPIC_API_KEY=sk-local-proxy`;
 const CLEAR_ENV_COMMAND = `unset ANTHROPIC_BASE_URL
 unset ANTHROPIC_API_KEY`;
