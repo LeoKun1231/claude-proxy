@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
         customProviders: [],
     },
     settings: {
-        autoLaunch: false,
+        autoLaunch: true,
     },
 };
 

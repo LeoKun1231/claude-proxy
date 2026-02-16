@@ -2,9 +2,9 @@
  * Provider 配置组件
  * 支持多个自定义 Provider
  */
-import { useState, useEffect } from 'react';
-import { Collapse, Form, Input, Switch, Button, Space, Tag, message, Divider, Card, Popconfirm } from 'antd';
-import { PlusOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { useState, useEffect, useRef } from 'react';
+import { Collapse, Form, Input, Switch, Button, Space, Tag, message, Divider, Card, Popconfirm, Typography } from 'antd';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 
 // 内置 Provider 定义
 const BUILTIN_PROVIDERS = [
@@ -33,11 +33,14 @@ interface CustomProviderData extends ProviderConfigData {
     baseUrl: string;
 }
 
+const { Text } = Typography;
+
 function ProviderConfig() {
     const [configs, setConfigs] = useState<Record<string, ProviderConfigData>>({});
     const [customProviders, setCustomProviders] = useState<CustomProviderData[]>([]);
-    const [loading, setLoading] = useState(false);
     const [newModel, setNewModel] = useState<Record<string, string>>({});
+    const builtinSaveTimerRef = useRef<Record<string, number>>({});
+    const customSaveTimerRef = useRef<number | null>(null);
 
     // 加载配置
     useEffect(() => {
@@ -53,29 +56,58 @@ function ProviderConfig() {
         loadConfigs();
     }, []);
 
-    // 更新内置 Provider 配置
-    const updateProvider = async (providerKey: string, field: string, value: any) => {
-        const updated = {
-            ...configs,
-            [providerKey]: {
-                ...configs[providerKey],
-                [field]: value
+    // 防抖保存内置 Provider，避免输入时频繁写入
+    const queueSaveProvider = (providerKey: string, providerConfig: ProviderConfigData) => {
+        if (builtinSaveTimerRef.current[providerKey]) {
+            window.clearTimeout(builtinSaveTimerRef.current[providerKey]);
+        }
+
+        builtinSaveTimerRef.current[providerKey] = window.setTimeout(async () => {
+            try {
+                await window.electronAPI.setConfig(`providers.${providerKey}`, providerConfig);
+            } catch (error: any) {
+                message.error('自动保存失败: ' + (error?.message || '未知错误'));
             }
-        };
-        setConfigs(updated);
+        }, 400);
     };
 
-    // 保存内置 Provider
-    const saveProvider = async (providerKey: string) => {
-        setLoading(true);
-        try {
-            await window.electronAPI.setConfig(`providers.${providerKey}`, configs[providerKey]);
-            message.success(`${providerKey} 配置已保存`);
-        } catch (error: any) {
-            message.error('保存失败: ' + error.message);
-        } finally {
-            setLoading(false);
+    // 防抖保存自定义 Provider 列表
+    const queueSaveCustomProviders = (nextProviders: CustomProviderData[]) => {
+        if (customSaveTimerRef.current) {
+            window.clearTimeout(customSaveTimerRef.current);
         }
+
+        customSaveTimerRef.current = window.setTimeout(async () => {
+            try {
+                await window.electronAPI.setConfig('providers.customProviders', nextProviders);
+            } catch (error: any) {
+                message.error('自动保存失败: ' + (error?.message || '未知错误'));
+            }
+        }, 400);
+    };
+
+    useEffect(() => {
+        return () => {
+            Object.values(builtinSaveTimerRef.current).forEach((timer) => window.clearTimeout(timer));
+            if (customSaveTimerRef.current) {
+                window.clearTimeout(customSaveTimerRef.current);
+            }
+        };
+    }, []);
+
+    // 更新内置 Provider 配置
+    const updateProvider = (providerKey: string, field: string, value: any) => {
+        setConfigs((prev) => {
+            const nextProvider = {
+                ...(prev[providerKey] || { enabled: false, apiKey: '', models: [] }),
+                [field]: value
+            };
+            queueSaveProvider(providerKey, nextProvider);
+            return {
+                ...prev,
+                [providerKey]: nextProvider
+            };
+        });
     };
 
     // 添加模型到内置 Provider
@@ -107,46 +139,33 @@ function ProviderConfig() {
         const newProvider: CustomProviderData = {
             id: newId,
             name: `自定义 ${customProviders.length + 1}`,
-            enabled: false,
+            enabled: true,
             apiKey: '',
             models: [],
             baseUrl: 'https://api.example.com'
         };
-        setCustomProviders([...customProviders, newProvider]);
+        const updated = [...customProviders, newProvider];
+        setCustomProviders(updated);
+        queueSaveCustomProviders(updated);
     };
 
     // 更新自定义 Provider
     const updateCustomProvider = (id: string, field: string, value: any) => {
-        setCustomProviders(
-            customProviders.map((p) =>
+        setCustomProviders((prev) => {
+            const updated = prev.map((p) =>
                 p.id === id ? { ...p, [field]: value } : p
-            )
-        );
-    };
-
-    // 保存所有自定义 Provider
-    const saveCustomProviders = async () => {
-        setLoading(true);
-        try {
-            await window.electronAPI.setConfig('providers.customProviders', customProviders);
-            message.success('自定义 Provider 已保存');
-        } catch (error: any) {
-            message.error('保存失败: ' + error.message);
-        } finally {
-            setLoading(false);
-        }
+            );
+            queueSaveCustomProviders(updated);
+            return updated;
+        });
     };
 
     // 删除自定义 Provider
-    const deleteCustomProvider = async (id: string) => {
+    const deleteCustomProvider = (id: string) => {
         const updated = customProviders.filter((p) => p.id !== id);
         setCustomProviders(updated);
-        try {
-            await window.electronAPI.setConfig('providers.customProviders', updated);
-            message.success('已删除');
-        } catch (error: any) {
-            message.error('删除失败: ' + error.message);
-        }
+        queueSaveCustomProviders(updated);
+        message.success('已删除并自动保存');
     };
 
     // 添加模型到自定义 Provider
@@ -253,14 +272,7 @@ function ProviderConfig() {
                     </Form.Item>
 
                     <Form.Item>
-                        <Button
-                            type="primary"
-                            icon={<SaveOutlined />}
-                            onClick={() => saveProvider(provider.key)}
-                            loading={loading}
-                        >
-                            保存配置
-                        </Button>
+                        <Text type="secondary">修改后自动保存</Text>
                     </Form.Item>
 
                     {provider.endpoint !== '本地代理' && (
@@ -359,11 +371,7 @@ function ProviderConfig() {
                 <Button icon={<PlusOutlined />} onClick={addCustomProvider}>
                     添加自定义 Provider
                 </Button>
-                {customProviders.length > 0 && (
-                    <Button type="primary" icon={<SaveOutlined />} onClick={saveCustomProviders} loading={loading}>
-                        保存所有自定义 Provider
-                    </Button>
-                )}
+                {customProviders.length > 0 && <Text type="secondary">已开启自动保存</Text>}
             </Space>
         </div>
     );
