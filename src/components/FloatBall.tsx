@@ -16,6 +16,7 @@ const BUILTIN_PROVIDER_NAMES: Record<string, string> = {
     'litellm': 'LiteLLM',
     'cliproxyapi': 'CLIProxyAPI',
 };
+const APP_FONT_FAMILY = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'WenQuanYi Micro Hei', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
 function FloatBall() {
     const [mainMapping, setMainMapping] = useState<string>('pass');
@@ -153,7 +154,10 @@ function FloatBall() {
         <ConfigProvider
             theme={{
                 algorithm: theme.darkAlgorithm,
-                token: { colorPrimary: '#1890ff' }
+                token: {
+                    colorPrimary: '#1890ff',
+                    fontFamily: APP_FONT_FAMILY,
+                }
             }}
         >
             <div

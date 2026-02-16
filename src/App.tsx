@@ -22,6 +22,7 @@ import { useProxyStatus, useLogs } from './hooks';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
+const APP_FONT_FAMILY = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'WenQuanYi Micro Hei', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
 // 卡片通用样式
 const cardStyle = {
@@ -133,6 +134,7 @@ function App() {
                     borderRadius: 8,
                     colorBgContainer: '#1f1f1f',
                     colorBgElevated: '#252525',
+                    fontFamily: APP_FONT_FAMILY,
                 }
             }}
         >

@@ -10,6 +10,14 @@ const store = new ElectronStore()
 // Disable GPU Acceleration for Windows 7
 if (release().startsWith('6.1')) app.disableHardwareAcceleration()
 
+// 在 WSL/Linux 图形兼容性较差的环境中降级到软件渲染，避免 GPU 进程崩溃
+const isWslLikeLinux = process.platform === 'linux' && release().toLowerCase().includes('microsoft')
+if (isWslLikeLinux) {
+    app.disableHardwareAcceleration()
+    app.commandLine.appendSwitch('disable-gpu')
+    app.commandLine.appendSwitch('disable-software-rasterizer')
+}
+
 // Set application name for Windows 10+ notifications
 if (process.platform === 'win32') app.setAppUserModelId(app.getName())
 

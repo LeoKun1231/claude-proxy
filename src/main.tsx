@@ -5,6 +5,8 @@ import zhCN from 'antd/locale/zh_CN';
 import App from './App';
 import './styles/index.css';
 
+const APP_FONT_FAMILY = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'WenQuanYi Micro Hei', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
         <ConfigProvider
@@ -14,6 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 token: {
                     colorPrimary: '#1890ff',
                     borderRadius: 6,
+                    fontFamily: APP_FONT_FAMILY,
                 },
             }}
         >
