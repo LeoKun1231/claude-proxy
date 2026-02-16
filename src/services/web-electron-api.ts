@@ -81,6 +81,54 @@ function post(path: string, body: JsonBody = {}) {
     });
 }
 
+function createTimestamp() {
+    const now = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+    const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    return `${date}-${time}`;
+}
+
+function downloadJsonFile(data: any, fileName: string) {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(href);
+}
+
+function selectImportFile(): Promise<File | null> {
+    return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.style.display = 'none';
+        document.body.appendChild(input);
+
+        input.addEventListener('change', () => {
+            const file = input.files && input.files.length > 0 ? input.files[0] : null;
+            document.body.removeChild(input);
+            resolve(file);
+        });
+
+        input.click();
+    });
+}
+
+function readFileAsText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('读取文件失败'));
+        reader.readAsText(file, 'utf-8');
+    });
+}
+
 function createWebElectronAPI() {
     return {
         async getConfig(key: string) {
@@ -145,13 +193,28 @@ function createWebElectronAPI() {
         },
         async exportConfig() {
             const result = await post('/export') as { success: boolean; config?: any; error?: string };
-            return { success: result.success, path: undefined, error: result.error };
+            if (!result.success) {
+                return { success: false, error: result.error || '导出失败' };
+            }
+
+            const fileName = `claude-proxy-config-${createTimestamp()}.json`;
+            downloadJsonFile(result.config || {}, fileName);
+            return { success: true, path: fileName };
         },
         async importConfig() {
-            return {
-                success: false,
-                error: 'Web 版本暂不支持文件导入，请通过 API 调用 /api/import',
-            };
+            const file = await selectImportFile();
+            if (!file) {
+                return { success: false, error: '已取消' };
+            }
+
+            try {
+                const raw = await readFileAsText(file);
+                const parsed = JSON.parse(raw);
+                const result = await post('/import', { config: parsed }) as { success: boolean; error?: string };
+                return { success: Boolean(result?.success), error: result?.error };
+            } catch (error: any) {
+                return { success: false, error: error?.message || '导入失败' };
+            }
         },
         showContextMenu(_options: { label: string; value: string; checked?: boolean }[]) {
             // Web 模式不支持原生右键菜单

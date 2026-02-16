@@ -8,7 +8,7 @@ import {
     ApiOutlined, SettingOutlined, FileTextOutlined,
     ExportOutlined, ImportOutlined, MoreOutlined,
     EyeOutlined, EyeInvisibleOutlined, ThunderboltOutlined,
-    CloudServerOutlined
+    CloudServerOutlined, CopyOutlined
 } from '@ant-design/icons';
 import EnvConfig from './components/EnvConfig';
 import Settings from './components/Settings';
@@ -26,9 +26,10 @@ const APP_FONT_FAMILY = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '
 
 // 卡片通用样式
 const cardStyle = {
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(15, 23, 42, 0.45)',
+    border: '1px solid rgba(148, 163, 184, 0.18)',
     borderRadius: 12,
+    backdropFilter: 'blur(6px)',
 };
 
 const cardHeadStyle = {
@@ -107,6 +108,14 @@ function App() {
     const hideFloatWindow = useCallback(() => {
         window.electronAPI.hideFloatWindow?.();
     }, []);
+    const handleCopyProxyUrl = useCallback(async () => {
+        try {
+            await navigator.clipboard.writeText(`http://127.0.0.1:${proxyStatus.port}`);
+            message.success('代理地址已复制');
+        } catch {
+            message.error('复制失败');
+        }
+    }, [proxyStatus.port]);
 
     // 初始加载状态
     useEffect(() => {
@@ -149,9 +158,10 @@ function App() {
             }}
         >
             <Layout style={{
-                minHeight: '100vh',
+                height: '100dvh',
                 background: 'linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%)',
-                position: 'relative'
+                position: 'relative',
+                overflow: 'hidden'
             }}>
                 {/* 背景噪点纹理 */}
                 <div style={{
@@ -241,8 +251,10 @@ function App() {
 
                 <Content style={{
                     padding: '20px clamp(12px, 2.2vw, 28px) 24px',
+                    minHeight: 0,
                     overflowY: 'auto',
                     overflowX: 'hidden',
+                    overscrollBehavior: 'contain',
                     position: 'relative',
                     zIndex: 1
                 }}>
@@ -250,7 +262,7 @@ function App() {
                         // 骨架屏
                         <div style={{ maxWidth: 1480, margin: '0 auto' }}>
                             <Row gutter={[20, 20]}>
-                                <Col xs={24} lg={12}>
+                                <Col xs={24} lg={13}>
                                     <Space direction="vertical" style={{ width: '100%' }} size={20}>
                                         <Card style={cardStyle}>
                                             <Skeleton active paragraph={{ rows: 3 }} />
@@ -343,21 +355,86 @@ function App() {
                                 </Col>
 
                                 {/* 右侧 */}
-                                <Col xs={24} lg={12}>
-                                    <Card
-                                        title={
-                                            <Space>
-                                                <SettingOutlined style={{ color: '#13c2c2' }} />
-                                                <span>Provider 配置</span>
+                                <Col xs={24} lg={11}>
+                                    <Space direction="vertical" style={{ width: '100%' }} size={20}>
+                                        <Card
+                                            title={
+                                                <Space>
+                                                    <SettingOutlined style={{ color: '#13c2c2' }} />
+                                                    <span>Provider 配置</span>
+                                                </Space>
+                                            }
+                                            size="small"
+                                            style={cardStyle}
+                                            headStyle={cardHeadStyle}
+                                            bodyStyle={{ maxHeight: 'calc(100dvh - 310px)', overflowY: 'auto' }}
+                                        >
+                                            <ProviderConfig />
+                                        </Card>
+
+                                        <Card
+                                            title={
+                                                <Space>
+                                                    <ApiOutlined style={{ color: '#22c55e' }} />
+                                                    <span>快捷操作</span>
+                                                </Space>
+                                            }
+                                            size="small"
+                                            style={cardStyle}
+                                            headStyle={cardHeadStyle}
+                                        >
+                                            <Space direction="vertical" style={{ width: '100%' }} size={14}>
+                                                <div style={{ display: 'flex', gap: 10 }}>
+                                                    <Button
+                                                        icon={<ExportOutlined />}
+                                                        onClick={handleExport}
+                                                        style={{ flex: 1 }}
+                                                    >
+                                                        导出配置
+                                                    </Button>
+                                                    <Button
+                                                        type="primary"
+                                                        icon={<ImportOutlined />}
+                                                        onClick={handleImport}
+                                                        style={{ flex: 1 }}
+                                                    >
+                                                        导入配置
+                                                    </Button>
+                                                </div>
+
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    gap: 10,
+                                                }}>
+                                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                                        当前代理入口
+                                                    </Text>
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={<CopyOutlined />}
+                                                        onClick={handleCopyProxyUrl}
+                                                    />
+                                                </div>
+
+                                                <Text
+                                                    code
+                                                    style={{
+                                                        display: 'block',
+                                                        background: 'rgba(0,0,0,0.35)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        borderRadius: 8,
+                                                        padding: '8px 10px',
+                                                        fontSize: 12,
+                                                    }}
+                                                >
+                                                    {`http://127.0.0.1:${proxyStatus.port}`}
+                                                </Text>
                                             </Space>
-                                        }
-                                        size="small"
-                                        style={cardStyle}
-                                        headStyle={cardHeadStyle}
-                                        bodyStyle={{ maxHeight: 'calc(100dvh - 220px)', overflowY: 'auto' }}
-                                    >
-                                        <ProviderConfig />
-                                    </Card>
+                                        </Card>
+                                    </Space>
                                 </Col>
                             </Row>
                         </div>
