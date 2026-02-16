@@ -1,0 +1,376 @@
+/**
+ * 主应用组件
+ * 优化版：使用自定义 hooks、减少重复渲染、增强视觉效果
+ */
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Layout, Card, Row, Col, Typography, Space, Tag, message, Button, Tooltip, Dropdown, ConfigProvider, theme, Skeleton } from 'antd';
+import {
+    ApiOutlined, SettingOutlined, FileTextOutlined,
+    ExportOutlined, ImportOutlined, MoreOutlined,
+    EyeOutlined, EyeInvisibleOutlined, ThunderboltOutlined,
+    CloudServerOutlined
+} from '@ant-design/icons';
+import EnvConfig from './components/EnvConfig';
+import Settings from './components/Settings';
+
+import StatusBar from './components/StatusBar';
+import ModelMapping from './components/ModelMapping';
+import ProviderConfig from './components/ProviderConfig';
+import LogViewer from './components/LogViewer';
+import FloatBall from './components/FloatBall';
+import { useProxyStatus, useLogs, LogItem } from './hooks';
+
+const { Header, Content, Footer } = Layout;
+const { Title, Text } = Typography;
+
+// 卡片通用样式
+const cardStyle = {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 12,
+};
+
+const cardHeadStyle = {
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
+};
+
+function App() {
+    // 使用自定义 hooks
+    const { status: proxyStatus, loading: proxyLoading, start, stop, restart } = useProxyStatus({
+        pollInterval: 5000,
+        backgroundPollInterval: 30000,
+        fastPollCount: 3,
+        fastPollInterval: 1000,
+    });
+
+    const [logs, setLogs] = useState<LogItem[]>([]);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+    // 检查是否是悬浮球模式
+    const isFloatMode = window.location.hash === '#/float';
+    if (isFloatMode) {
+        return <FloatBall />;
+    }
+
+    // 启动代理
+    const handleStart = async () => {
+        const result = await start();
+        if (result.success) {
+            message.success(`代理服务器已启动 (端口: ${result.port})`);
+        } else {
+            message.error(result.error || '启动失败');
+        }
+    };
+
+    // 停止代理
+    const handleStop = async () => {
+        await stop();
+        message.success('代理服务器已停止');
+    };
+
+    // 重启代理
+    const handleRestart = async () => {
+        const result = await restart();
+        if (result.success) {
+            message.success('代理服务器已重启');
+        } else {
+            message.error(result.error || '重启失败');
+        }
+    };
+
+    // 导出配置
+    const handleExport = async () => {
+        const result = await window.electronAPI.exportConfig();
+        if (result.success) {
+            message.success('配置已导出');
+        } else if (result.error !== '已取消') {
+            message.error('导出失败: ' + result.error);
+        }
+    };
+
+    // 导入配置
+    const handleImport = async () => {
+        const result = await window.electronAPI.importConfig();
+        if (result.success) {
+            message.success('配置已导入，页面将刷新');
+            setTimeout(() => window.location.reload(), 500);
+        } else if (result.error !== '已取消') {
+            message.error('导入失败: ' + result.error);
+        }
+    };
+
+    // 悬浮球控制
+    const showFloatWindow = () => window.electronAPI.showFloatWindow?.();
+    const hideFloatWindow = () => window.electronAPI.hideFloatWindow?.();
+
+    // 日志监听
+    useEffect(() => {
+        const handleLog = (data: any) => {
+            const logItem: LogItem = {
+                id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                message: data.message,
+                type: data.type,
+                timestamp: data.timestamp,
+            };
+            setLogs(prev => {
+                const updated = [...prev, logItem];
+                // 限制日志数量
+                return updated.length > 200 ? updated.slice(-200) : updated;
+            });
+        };
+
+        window.electronAPI.onProxyLog(handleLog);
+
+        // 初始加载完成
+        setTimeout(() => setIsInitialLoad(false), 300);
+
+        return () => {
+            window.electronAPI.removeProxyLogListener();
+        };
+    }, []);
+
+    // 更多菜单
+    const moreMenuItems = useMemo(() => [
+        { key: 'export', label: '导出配置', icon: <ExportOutlined />, onClick: handleExport },
+        { key: 'import', label: '导入配置', icon: <ImportOutlined />, onClick: handleImport },
+        { type: 'divider' as const },
+        { key: 'showFloat', label: '显示悬浮球', icon: <EyeOutlined />, onClick: showFloatWindow },
+        { key: 'hideFloat', label: '隐藏悬浮球', icon: <EyeInvisibleOutlined />, onClick: hideFloatWindow },
+    ], []);
+
+    return (
+        <ConfigProvider
+            theme={{
+                algorithm: theme.darkAlgorithm,
+                token: {
+                    colorPrimary: '#1890ff',
+                    borderRadius: 8,
+                    colorBgContainer: '#1f1f1f',
+                    colorBgElevated: '#252525',
+                }
+            }}
+        >
+            <Layout style={{
+                height: '100vh',
+                background: 'linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%)',
+                overflow: 'hidden'
+            }}>
+                {/* 背景噪点纹理 */}
+                <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                    opacity: 0.03,
+                    pointerEvents: 'none',
+                    zIndex: 0,
+                }} />
+
+                {/* 顶部标题栏 */}
+                <Header style={{
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    backdropFilter: 'blur(12px)',
+                    padding: '0 24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    height: 64,
+                    flexShrink: 0,
+                    zIndex: 100
+                }}>
+                    <Space size="middle">
+                        <div style={{
+                            width: 42,
+                            height: 42,
+                            background: 'linear-gradient(135deg, #1890ff 0%, #0050b3 100%)',
+                            borderRadius: 12,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 4px 16px rgba(24, 144, 255, 0.35)',
+                            transition: 'transform 0.2s ease',
+                        }}>
+                            <ThunderboltOutlined style={{ fontSize: 22, color: '#fff' }} />
+                        </div>
+                        <div>
+                            <Title level={4} style={{ margin: 0, color: '#fff', lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+                                Claude Proxy
+                            </Title>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                API 代理与模型切换
+                            </Text>
+                        </div>
+                    </Space>
+
+                    <Space size="middle">
+                        <Tag
+                            icon={proxyStatus.running ? <CloudServerOutlined /> : null}
+                            color={proxyStatus.running ? 'success' : 'default'}
+                            style={{
+                                padding: '6px 14px',
+                                borderRadius: 20,
+                                background: proxyStatus.running ? 'rgba(82, 196, 26, 0.12)' : 'rgba(255,255,255,0.08)',
+                                border: proxyStatus.running ? '1px solid rgba(82, 196, 26, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                fontSize: 13,
+                                fontWeight: 500,
+                                transition: 'all 0.3s ease',
+                            }}
+                        >
+                            {proxyStatus.running ? `运行中 · 端口 ${proxyStatus.port}` : '已停止'}
+                        </Tag>
+                        <Tooltip title="悬浮球">
+                            <Button
+                                type="text"
+                                icon={<EyeOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
+                                onClick={showFloatWindow}
+                                style={{ borderRadius: 8 }}
+                            />
+                        </Tooltip>
+                        <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
+                            <Button
+                                type="text"
+                                icon={<MoreOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
+                                style={{ borderRadius: 8 }}
+                            />
+                        </Dropdown>
+                    </Space>
+                </Header>
+
+                <Content style={{
+                    padding: '24px',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    position: 'relative',
+                    zIndex: 1
+                }}>
+                    {isInitialLoad ? (
+                        // 骨架屏
+                        <Row gutter={[20, 20]}>
+                            <Col xs={24} lg={12}>
+                                <Space direction="vertical" style={{ width: '100%' }} size={20}>
+                                    <Card style={cardStyle}>
+                                        <Skeleton active paragraph={{ rows: 3 }} />
+                                    </Card>
+                                    <Card style={cardStyle}>
+                                        <Skeleton active paragraph={{ rows: 4 }} />
+                                    </Card>
+                                </Space>
+                            </Col>
+                            <Col xs={24} lg={12}>
+                                <Card style={cardStyle}>
+                                    <Skeleton active paragraph={{ rows: 8 }} />
+                                </Card>
+                            </Col>
+                        </Row>
+                    ) : (
+                        <Row gutter={[20, 20]} className="fade-in">
+                            {/* 左侧 */}
+                            <Col xs={24} lg={12}>
+                                <Space direction="vertical" style={{ width: '100%' }} size={20}>
+                                    {/* 服务状态卡片 */}
+                                    <Card
+                                        title={
+                                            <Space>
+                                                <ApiOutlined style={{ color: '#1890ff' }} />
+                                                <span>服务状态</span>
+                                            </Space>
+                                        }
+                                        size="small"
+                                        style={cardStyle}
+                                        headStyle={cardHeadStyle}
+                                    >
+                                        <StatusBar
+                                            status={proxyStatus}
+                                            loading={proxyLoading}
+                                            onStart={handleStart}
+                                            onStop={handleStop}
+                                            onRestart={handleRestart}
+                                        />
+                                    </Card>
+
+                                    {/* 模型映射卡片 */}
+                                    <Card
+                                        title={
+                                            <Space>
+                                                <SettingOutlined style={{ color: '#52c41a' }} />
+                                                <span>模型映射</span>
+                                            </Space>
+                                        }
+                                        size="small"
+                                        style={cardStyle}
+                                        headStyle={cardHeadStyle}
+                                    >
+                                        <ModelMapping onMappingChange={handleRestart} />
+                                    </Card>
+
+                                    {/* 环境变量配置 */}
+                                    <EnvConfig />
+
+                                    {/* 系统设置 */}
+                                    <Settings />
+
+                                    {/* 日志面板 */}
+                                    <Card
+                                        title={
+                                            <Space>
+                                                <FileTextOutlined style={{ color: '#faad14' }} />
+                                                <span>请求日志</span>
+                                                {logs.length > 0 && (
+                                                    <Tag style={{
+                                                        marginLeft: 8,
+                                                        fontSize: 11,
+                                                        padding: '0 6px',
+                                                        borderRadius: 10,
+                                                    }}>
+                                                        {logs.length}
+                                                    </Tag>
+                                                )}
+                                            </Space>
+                                        }
+                                        size="small"
+                                        style={cardStyle}
+                                        headStyle={cardHeadStyle}
+                                    >
+                                        <LogViewer logs={logs} onClear={() => setLogs([])} />
+                                    </Card>
+                                </Space>
+                            </Col>
+
+                            {/* 右侧 */}
+                            <Col xs={24} lg={12}>
+                                <Card
+                                    title={
+                                        <Space>
+                                            <SettingOutlined style={{ color: '#eb2f96' }} />
+                                            <span>Provider 配置</span>
+                                        </Space>
+                                    }
+                                    size="small"
+                                    style={{ ...cardStyle, height: '100%' }}
+                                    headStyle={cardHeadStyle}
+                                    bodyStyle={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}
+                                >
+                                    <ProviderConfig />
+                                </Card>
+                            </Col>
+                        </Row>
+                    )}
+                </Content>
+
+                <Footer style={{
+                    textAlign: 'center',
+                    background: 'transparent',
+                    padding: '16px 24px',
+                    color: 'rgba(255,255,255,0.2)',
+                    fontSize: 12,
+                    position: 'relative',
+                    zIndex: 1,
+                }}>
+                    Claude Proxy v1.0.0 · Electron + React + Ant Design
+                </Footer>
+            </Layout>
+        </ConfigProvider>
+    );
+}
+
+export default App;

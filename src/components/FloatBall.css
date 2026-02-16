@@ -1,0 +1,126 @@
+/* 悬浮球组件样式 - 极简深色玻璃球 */
+
+body {
+    background: transparent !important;
+    /* 移除 overflow: hidden，不仅影响悬浮球，还导致主窗口无法滚动 */
+}
+
+#root {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    /* 防止悬浮球窗口出现滚动条 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.float-ball {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    /* 深色磨砂背景 */
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(12px);
+
+    /* 居中布局 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* 交互属性 */
+    cursor: pointer;
+    /* 拖拽通过 JS 实现，不使用 -webkit-app-region */
+    position: relative;
+
+    /* 细腻的阴影和高光 */
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        inset 0 1px 1px rgba(255, 255, 255, 0.15),
+        inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+
+    /* 边框 */
+    border: 1px solid rgba(255, 255, 255, 0.08);
+
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.float-ball:hover {
+    transform: scale(1.05);
+    background: rgba(30, 30, 30, 0.9);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        0 4px 12px rgba(0, 0, 0, 0.2),
+        inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.float-ball:active {
+    transform: scale(0.95);
+    background: rgba(10, 10, 10, 0.95);
+}
+
+/* 状态指示光环 (取代生硬的圆点) */
+.float-ball::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    padding: 2px;
+    background: conic-gradient(from 0deg, transparent 0%, transparent 100%);
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.5;
+    transition: all 0.5s ease;
+}
+
+/* 运行状态 - 绿色微光 */
+.float-ball.running::after {
+    background: conic-gradient(from 0deg, transparent 20%, #52c41a 50%, transparent 80%);
+    animation: rotate 3s linear infinite;
+    opacity: 0.8;
+    box-shadow: 0 0 15px rgba(82, 196, 26, 0.3);
+}
+
+.float-ball.running {
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(82, 196, 26, 0.2),
+        0 0 12px rgba(82, 196, 26, 0.15);
+}
+
+/* 停止状态 - 红色微光 */
+.float-ball.stopped {
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 77, 79, 0.2),
+        inset 0 0 10px rgba(255, 77, 79, 0.05);
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 图标 */
+.float-ball-icon {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.85);
+    transition: all 0.3s ease;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.float-ball:hover .float-ball-icon {
+    color: #fff;
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
+}

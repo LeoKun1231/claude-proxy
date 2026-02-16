@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-electron
+release
+release-*
+*.log
+.DS_Store
+*.asar
+temp-app
+build-output.txt
+vite-error.log
+.claude
+.vscode
