@@ -132,10 +132,18 @@ function handleProxyRequest(req: http.IncomingMessage, res: http.ServerResponse,
             delete headers['content-length'];
             delete headers['connection'];
             delete headers['transfer-encoding'];
+            // 清理来路鉴权头，避免终端 token 和目标 Provider key 冲突
+            delete headers['authorization'];
+            delete headers['proxy-authorization'];
+            delete headers['x-api-key'];
+            delete headers['anthropic-api-key'];
 
             // 强制设置目标 Header
             headers['host'] = targetUrl.host;
-            headers['x-api-key'] = providerConfig.apiKey;
+            if (providerConfig.apiKey) {
+                headers['x-api-key'] = providerConfig.apiKey;
+                headers['authorization'] = `Bearer ${providerConfig.apiKey}`;
+            }
 
             // 默认 header 
             if (!headers['anthropic-version']) {
