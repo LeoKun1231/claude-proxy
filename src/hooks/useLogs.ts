@@ -9,6 +9,7 @@ export interface LogItem {
     message: string;
     type: 'info' | 'warn' | 'error';
     timestamp: string;
+    repeatCount?: number;
 }
 
 interface UseLogsOptions {
@@ -24,6 +25,36 @@ const defaultOptions: UseLogsOptions = {
 };
 
 let logIdCounter = 0;
+const REPEAT_MERGE_WINDOW_MS = 5000;
+
+// 合并连续重复日志，降低日志噪音
+function mergeRepeatLog(logList: LogItem[], incomingLog: LogItem): LogItem[] {
+    const lastLog = logList[logList.length - 1];
+    if (!lastLog) {
+        return [...logList, incomingLog];
+    }
+
+    const incomingTs = new Date(incomingLog.timestamp).getTime();
+    const lastTs = new Date(lastLog.timestamp).getTime();
+    const withinMergeWindow = Number.isFinite(incomingTs) && Number.isFinite(lastTs)
+        ? incomingTs - lastTs <= REPEAT_MERGE_WINDOW_MS
+        : false;
+
+    if (withinMergeWindow && lastLog.type === incomingLog.type && lastLog.message === incomingLog.message) {
+        const nextRepeatCount = (lastLog.repeatCount || 1) + 1;
+        return [
+            ...logList.slice(0, -1),
+            {
+                ...lastLog,
+                repeatCount: nextRepeatCount,
+                // 使用最新时间戳，便于观察最近一次出现时间
+                timestamp: incomingLog.timestamp,
+            }
+        ];
+    }
+
+    return [...logList, incomingLog];
+}
 
 export function useLogs(options: UseLogsOptions = {}) {
     const maxLogs = options.maxLogs ?? defaultOptions.maxLogs!;
@@ -43,13 +74,13 @@ export function useLogs(options: UseLogsOptions = {}) {
 
         if (isPaused) {
             // 暂停时缓存日志
-            pendingLogsRef.current.push(newLog);
-            if (pendingLogsRef.current.length > maxLogs) {
-                pendingLogsRef.current = pendingLogsRef.current.slice(-maxLogs);
-            }
+            const mergedPending = mergeRepeatLog(pendingLogsRef.current, newLog);
+            pendingLogsRef.current = mergedPending.length > maxLogs
+                ? mergedPending.slice(-maxLogs)
+                : mergedPending;
         } else {
             setLogs(prev => {
-                const updated = [...prev, newLog];
+                const updated = mergeRepeatLog(prev, newLog);
                 // 限制日志数量
                 if (updated.length > maxLogs) {
                     return updated.slice(-maxLogs);
@@ -71,7 +102,10 @@ export function useLogs(options: UseLogsOptions = {}) {
             if (prev) {
                 // 恢复时合并缓存的日志
                 setLogs(currentLogs => {
-                    const merged = [...currentLogs, ...pendingLogsRef.current];
+                    let merged = currentLogs;
+                    for (const pendingLog of pendingLogsRef.current) {
+                        merged = mergeRepeatLog(merged, pendingLog);
+                    }
                     pendingLogsRef.current = [];
                     if (merged.length > maxLogs) {
                         return merged.slice(-maxLogs);

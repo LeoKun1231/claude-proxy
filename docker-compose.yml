@@ -1,0 +1,17 @@
+services:
+  claude-proxy-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-proxy-web
+    ports:
+      - "5056:5056"
+      - "5055:5055"
+    environment:
+      WEB_PORT: "5056"
+      PROXY_PORT: "5055"
+      AUTO_START_PROXY: "true"
+      DATA_DIR: "/app/data"
+    volumes:
+      - ./data:/app/data
+    restart: always

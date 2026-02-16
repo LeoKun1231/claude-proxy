@@ -182,12 +182,6 @@ function handleProxyRequest(req: http.IncomingMessage, res: http.ServerResponse,
                         type: 'error',
                         timestamp: new Date().toISOString()
                     });
-                } else {
-                    logCallback?.({
-                        message: `[RES] Upstream ${proxyRes.statusCode}`,
-                        type: 'info',
-                        timestamp: new Date().toISOString()
-                    });
                 }
 
                 proxyRes.pipe(res);

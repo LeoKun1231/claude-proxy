@@ -11,6 +11,7 @@ interface LogItem {
     message: string;
     type: 'info' | 'warn' | 'error';
     timestamp: string;
+    repeatCount?: number;
 }
 
 interface LogViewerProps {
@@ -66,6 +67,21 @@ const LogEntry = memo(({ log }: { log: LogItem }) => {
             >
                 {log.message}
             </span>
+            {log.repeatCount && log.repeatCount > 1 && (
+                <Tag
+                    color="default"
+                    style={{
+                        margin: 0,
+                        padding: '0 6px',
+                        fontSize: 10,
+                        lineHeight: '18px',
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.16)',
+                    }}
+                >
+                    x{log.repeatCount}
+                </Tag>
+            )}
         </div>
     );
 });
@@ -91,10 +107,11 @@ function LogViewer({ logs, onClear }: LogViewerProps) {
     const stats = useMemo(() => {
         return logs.reduce(
             (acc, item) => {
-                acc.total += 1;
-                if (item.type === 'info') acc.info += 1;
-                if (item.type === 'warn') acc.warn += 1;
-                if (item.type === 'error') acc.error += 1;
+                const logCount = item.repeatCount || 1;
+                acc.total += logCount;
+                if (item.type === 'info') acc.info += logCount;
+                if (item.type === 'warn') acc.warn += logCount;
+                if (item.type === 'error') acc.error += logCount;
                 return acc;
             },
             { total: 0, info: 0, warn: 0, error: 0 }

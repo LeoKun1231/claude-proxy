@@ -1,28 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import electron from 'vite-plugin-electron'
-import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
 
 export default defineConfig({
-    base: './',
+    base: '/',
     plugins: [
-        react(),
-        electron([
-            {
-                // Main-Process Entry
-                entry: 'electron/main.ts',
-            },
-            {
-                entry: 'electron/preload.ts',
-                onstart(options) {
-                    // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, 
-                    // instead of restarting the entire Electron App.
-                    options.reload()
-                },
-            },
-        ]),
-        renderer()
+        react()
     ],
     resolve: {
         alias: {
@@ -30,6 +13,12 @@ export default defineConfig({
         }
     },
     server: {
-        port: 5173
+        port: 5173,
+        proxy: {
+            '/api': {
+                target: 'http://127.0.0.1:5056',
+                changeOrigin: true,
+            }
+        }
     }
 })
