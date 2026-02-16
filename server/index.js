@@ -232,10 +232,11 @@ if (fs.existsSync(distPath)) {
 }
 
 app.listen(WEB_PORT, async () => {
-    if (AUTO_START_PROXY) {
+    const shouldAutoStartProxy = AUTO_START_PROXY || Boolean(appConfig.settings?.autoLaunch);
+    if (shouldAutoStartProxy) {
         await startProxyServer(PROXY_PORT, sendProxyLog);
     }
 
     console.log(`Web 服务已启动: http://127.0.0.1:${WEB_PORT}`);
-    console.log(`代理端口: ${PROXY_PORT} (AUTO_START_PROXY=${AUTO_START_PROXY})`);
+    console.log(`代理端口: ${PROXY_PORT} (AUTO_START_PROXY=${shouldAutoStartProxy})`);
 });

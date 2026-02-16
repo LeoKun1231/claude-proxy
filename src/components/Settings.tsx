@@ -26,7 +26,7 @@ function Settings() {
         try {
             await window.electronAPI.setAutoLaunch(checked);
             setAutoLaunch(checked);
-            message.success(checked ? '已开启开机自启' : '已关闭开机自启');
+            message.success(checked ? '已开启服务自启' : '已关闭服务自启');
         } catch (error: any) {
             message.error('设置失败: ' + error.message);
         } finally {
@@ -55,9 +55,9 @@ function Settings() {
                     <Space>
                         <RocketOutlined style={{ fontSize: 16, color: '#1890ff' }} />
                         <div>
-                            <Text strong style={{ display: 'block' }}>开机自启</Text>
+                            <Text strong style={{ display: 'block' }}>服务自启</Text>
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                系统启动时自动运行应用
+                                服务启动时自动拉起代理
                             </Text>
                         </div>
                     </Space>

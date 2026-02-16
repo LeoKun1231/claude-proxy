@@ -45,6 +45,7 @@ function App() {
     });
     const { logs, clearLogs } = useLogs({ maxLogs: 200, autoScroll: false });
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const isDesktopRuntime = typeof window !== 'undefined' && window.location.protocol === 'file:';
 
     // 检查是否是悬浮球模式
     const isFloatMode = window.location.hash === '#/float';
@@ -117,13 +118,22 @@ function App() {
     }, []);
 
     // 更多菜单
-    const moreMenuItems = useMemo(() => [
-        { key: 'export', label: '导出配置', icon: <ExportOutlined />, onClick: handleExport },
-        { key: 'import', label: '导入配置', icon: <ImportOutlined />, onClick: handleImport },
-        { type: 'divider' as const },
-        { key: 'showFloat', label: '显示悬浮球', icon: <EyeOutlined />, onClick: showFloatWindow },
-        { key: 'hideFloat', label: '隐藏悬浮球', icon: <EyeInvisibleOutlined />, onClick: hideFloatWindow },
-    ], [handleExport, handleImport, showFloatWindow, hideFloatWindow]);
+    const moreMenuItems = useMemo(() => {
+        const items: any[] = [
+            { key: 'export', label: '导出配置', icon: <ExportOutlined />, onClick: handleExport },
+            { key: 'import', label: '导入配置', icon: <ImportOutlined />, onClick: handleImport },
+        ];
+
+        if (isDesktopRuntime) {
+            items.push(
+                { type: 'divider' as const },
+                { key: 'showFloat', label: '显示悬浮球', icon: <EyeOutlined />, onClick: showFloatWindow },
+                { key: 'hideFloat', label: '隐藏悬浮球', icon: <EyeInvisibleOutlined />, onClick: hideFloatWindow },
+            );
+        }
+
+        return items;
+    }, [handleExport, handleImport, isDesktopRuntime, showFloatWindow, hideFloatWindow]);
 
     return (
         <ConfigProvider
@@ -139,9 +149,9 @@ function App() {
             }}
         >
             <Layout style={{
-                height: '100vh',
+                minHeight: '100vh',
                 background: 'linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%)',
-                overflow: 'hidden'
+                position: 'relative'
             }}>
                 {/* 背景噪点纹理 */}
                 <div style={{
@@ -163,7 +173,10 @@ function App() {
                     justifyContent: 'space-between',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
                     height: 64,
+                    lineHeight: 'normal',
                     flexShrink: 0,
+                    position: 'sticky',
+                    top: 0,
                     zIndex: 100
                 }}>
                     <Space size="middle">
@@ -206,14 +219,16 @@ function App() {
                         >
                             {proxyStatus.running ? `运行中 · 端口 ${proxyStatus.port}` : '已停止'}
                         </Tag>
-                        <Tooltip title="悬浮球">
-                            <Button
-                                type="text"
-                                icon={<EyeOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
-                                onClick={showFloatWindow}
-                                style={{ borderRadius: 8 }}
-                            />
-                        </Tooltip>
+                        {isDesktopRuntime && (
+                            <Tooltip title="悬浮球">
+                                <Button
+                                    type="text"
+                                    icon={<EyeOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
+                                    onClick={showFloatWindow}
+                                    style={{ borderRadius: 8 }}
+                                />
+                            </Tooltip>
+                        )}
                         <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
                             <Button
                                 type="text"
@@ -225,7 +240,7 @@ function App() {
                 </Header>
 
                 <Content style={{
-                    padding: '24px',
+                    padding: '20px clamp(12px, 2.2vw, 28px) 24px',
                     overflowY: 'auto',
                     overflowX: 'hidden',
                     position: 'relative',
@@ -233,115 +248,119 @@ function App() {
                 }}>
                     {isInitialLoad ? (
                         // 骨架屏
-                        <Row gutter={[20, 20]}>
-                            <Col xs={24} lg={12}>
-                                <Space direction="vertical" style={{ width: '100%' }} size={20}>
+                        <div style={{ maxWidth: 1480, margin: '0 auto' }}>
+                            <Row gutter={[20, 20]}>
+                                <Col xs={24} lg={12}>
+                                    <Space direction="vertical" style={{ width: '100%' }} size={20}>
+                                        <Card style={cardStyle}>
+                                            <Skeleton active paragraph={{ rows: 3 }} />
+                                        </Card>
+                                        <Card style={cardStyle}>
+                                            <Skeleton active paragraph={{ rows: 4 }} />
+                                        </Card>
+                                    </Space>
+                                </Col>
+                                <Col xs={24} lg={12}>
                                     <Card style={cardStyle}>
-                                        <Skeleton active paragraph={{ rows: 3 }} />
+                                        <Skeleton active paragraph={{ rows: 8 }} />
                                     </Card>
-                                    <Card style={cardStyle}>
-                                        <Skeleton active paragraph={{ rows: 4 }} />
-                                    </Card>
-                                </Space>
-                            </Col>
-                            <Col xs={24} lg={12}>
-                                <Card style={cardStyle}>
-                                    <Skeleton active paragraph={{ rows: 8 }} />
-                                </Card>
-                            </Col>
-                        </Row>
+                                </Col>
+                            </Row>
+                        </div>
                     ) : (
-                        <Row gutter={[20, 20]} className="fade-in">
-                            {/* 左侧 */}
-                            <Col xs={24} lg={12}>
-                                <Space direction="vertical" style={{ width: '100%' }} size={20}>
-                                    {/* 服务状态卡片 */}
+                        <div style={{ maxWidth: 1480, margin: '0 auto' }}>
+                            <Row gutter={[20, 20]} className="fade-in">
+                                {/* 左侧 */}
+                                <Col xs={24} lg={12}>
+                                    <Space direction="vertical" style={{ width: '100%' }} size={20}>
+                                        {/* 服务状态卡片 */}
+                                        <Card
+                                            title={
+                                                <Space>
+                                                    <ApiOutlined style={{ color: '#1890ff' }} />
+                                                    <span>服务状态</span>
+                                                </Space>
+                                            }
+                                            size="small"
+                                            style={cardStyle}
+                                            headStyle={cardHeadStyle}
+                                        >
+                                            <StatusBar
+                                                status={proxyStatus}
+                                                loading={proxyLoading}
+                                                onStart={handleStart}
+                                                onStop={handleStop}
+                                                onRestart={handleRestart}
+                                            />
+                                        </Card>
+
+                                        {/* 模型映射卡片 */}
+                                        <Card
+                                            title={
+                                                <Space>
+                                                    <SettingOutlined style={{ color: '#52c41a' }} />
+                                                    <span>模型映射</span>
+                                                </Space>
+                                            }
+                                            size="small"
+                                            style={cardStyle}
+                                            headStyle={cardHeadStyle}
+                                        >
+                                            <ModelMapping onMappingChange={handleRestart} />
+                                        </Card>
+
+                                        {/* 环境变量配置 */}
+                                        <EnvConfig />
+
+                                        {/* 系统设置 */}
+                                        <Settings />
+
+                                        {/* 日志面板 */}
+                                        <Card
+                                            title={
+                                                <Space>
+                                                    <FileTextOutlined style={{ color: '#faad14' }} />
+                                                    <span>请求日志</span>
+                                                    {logs.length > 0 && (
+                                                        <Tag style={{
+                                                            marginLeft: 8,
+                                                            fontSize: 11,
+                                                            padding: '0 6px',
+                                                            borderRadius: 10,
+                                                        }}>
+                                                            {logs.length}
+                                                        </Tag>
+                                                    )}
+                                                </Space>
+                                            }
+                                            size="small"
+                                            style={cardStyle}
+                                            headStyle={cardHeadStyle}
+                                        >
+                                            <LogViewer logs={logs} onClear={clearLogs} />
+                                        </Card>
+                                    </Space>
+                                </Col>
+
+                                {/* 右侧 */}
+                                <Col xs={24} lg={12}>
                                     <Card
                                         title={
                                             <Space>
-                                                <ApiOutlined style={{ color: '#1890ff' }} />
-                                                <span>服务状态</span>
+                                                <SettingOutlined style={{ color: '#13c2c2' }} />
+                                                <span>Provider 配置</span>
                                             </Space>
                                         }
                                         size="small"
                                         style={cardStyle}
                                         headStyle={cardHeadStyle}
+                                        bodyStyle={{ maxHeight: 'calc(100dvh - 220px)', overflowY: 'auto' }}
                                     >
-                                        <StatusBar
-                                            status={proxyStatus}
-                                            loading={proxyLoading}
-                                            onStart={handleStart}
-                                            onStop={handleStop}
-                                            onRestart={handleRestart}
-                                        />
+                                        <ProviderConfig />
                                     </Card>
-
-                                    {/* 模型映射卡片 */}
-                                    <Card
-                                        title={
-                                            <Space>
-                                                <SettingOutlined style={{ color: '#52c41a' }} />
-                                                <span>模型映射</span>
-                                            </Space>
-                                        }
-                                        size="small"
-                                        style={cardStyle}
-                                        headStyle={cardHeadStyle}
-                                    >
-                                        <ModelMapping onMappingChange={handleRestart} />
-                                    </Card>
-
-                                    {/* 环境变量配置 */}
-                                    <EnvConfig />
-
-                                    {/* 系统设置 */}
-                                    <Settings />
-
-                                    {/* 日志面板 */}
-                                    <Card
-                                        title={
-                                            <Space>
-                                                <FileTextOutlined style={{ color: '#faad14' }} />
-                                                <span>请求日志</span>
-                                                {logs.length > 0 && (
-                                                    <Tag style={{
-                                                        marginLeft: 8,
-                                                        fontSize: 11,
-                                                        padding: '0 6px',
-                                                        borderRadius: 10,
-                                                    }}>
-                                                        {logs.length}
-                                                    </Tag>
-                                                )}
-                                            </Space>
-                                        }
-                                        size="small"
-                                        style={cardStyle}
-                                        headStyle={cardHeadStyle}
-                                    >
-                                        <LogViewer logs={logs} onClear={clearLogs} />
-                                    </Card>
-                                </Space>
-                            </Col>
-
-                            {/* 右侧 */}
-                            <Col xs={24} lg={12}>
-                                <Card
-                                    title={
-                                        <Space>
-                                            <SettingOutlined style={{ color: '#eb2f96' }} />
-                                            <span>Provider 配置</span>
-                                        </Space>
-                                    }
-                                    size="small"
-                                    style={{ ...cardStyle, height: '100%' }}
-                                    headStyle={cardHeadStyle}
-                                    bodyStyle={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}
-                                >
-                                    <ProviderConfig />
-                                </Card>
-                            </Col>
-                        </Row>
+                                </Col>
+                            </Row>
+                        </div>
                     )}
                 </Content>
 
@@ -354,7 +373,7 @@ function App() {
                     position: 'relative',
                     zIndex: 1,
                 }}>
-                    Claude Proxy v1.0.0 · Electron + React + Ant Design
+                    Claude Proxy v1.0.0 · Web + React + Ant Design
                 </Footer>
             </Layout>
         </ConfigProvider>
