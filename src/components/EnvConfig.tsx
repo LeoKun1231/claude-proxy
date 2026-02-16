@@ -6,16 +6,20 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Typography, Space, Tooltip, message, Tag } from 'antd';
 import {
     CodeOutlined,
-    CheckCircleOutlined,
     ExclamationCircleOutlined,
     QuestionCircleOutlined,
-    PoweroffOutlined
+    PoweroffOutlined,
+    CopyOutlined
 } from '@ant-design/icons';
 
 const { Text, Paragraph } = Typography;
 
 // 当前预期端口 (应该动态获取，这里先硬编码或者从 proxyStatus 拿)
 const EXPECTED_URL = 'http://127.0.0.1:5055';
+const SET_ENV_COMMAND = `export ANTHROPIC_BASE_URL=${EXPECTED_URL}
+export ANTHROPIC_API_KEY=sk-local-proxy`;
+const CLEAR_ENV_COMMAND = `unset ANTHROPIC_BASE_URL
+unset ANTHROPIC_API_KEY`;
 
 function EnvConfig() {
     const [currentEnv, setCurrentEnv] = useState<string | null>(null);
@@ -42,11 +46,10 @@ function EnvConfig() {
     const handleSetEnv = async () => {
         setLoading(true);
         try {
-            await window.electronAPI.setSystemEnv(EXPECTED_URL);
-            message.success('环境变量已设置！请重启终端生效');
-            await checkEnv();
+            await navigator.clipboard.writeText(SET_ENV_COMMAND);
+            message.success('已复制命令，请在 Claude Code 所在终端执行后重启会话');
         } catch (e) {
-            message.error('设置失败');
+            message.error('复制失败，请手动复制下方命令');
         } finally {
             setLoading(false);
         }
@@ -56,11 +59,10 @@ function EnvConfig() {
     const handleClearEnv = async () => {
         setLoading(true);
         try {
-            await window.electronAPI.setSystemEnv(null);
-            message.success('环境变量已清除');
-            await checkEnv();
+            await navigator.clipboard.writeText(CLEAR_ENV_COMMAND);
+            message.success('已复制清理命令，请在终端执行');
         } catch (e) {
-            message.error('清除失败');
+            message.error('复制失败，请手动复制下方命令');
         } finally {
             setLoading(false);
         }
@@ -72,7 +74,7 @@ function EnvConfig() {
         <Card
             title={
                 <Space>
-                    <CodeOutlined style={{ color: '#722ed1' }} />
+                    <CodeOutlined style={{ color: '#1890ff' }} />
                     <span>命令行配置</span>
                     <Tooltip title="为 Claude Code 命令行工具自动配置代理地址">
                         <QuestionCircleOutlined style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }} />
@@ -107,12 +109,12 @@ function EnvConfig() {
                     <Button
                         type="primary"
                         block
-                        icon={<CheckCircleOutlined />}
+                        icon={<CopyOutlined />}
                         onClick={handleSetEnv}
                         loading={loading}
-                        style={{ borderRadius: 6, background: '#722ed1', borderColor: '#722ed1' }}
+                        style={{ borderRadius: 6, background: '#1890ff', borderColor: '#1890ff' }}
                     >
-                        一键配置代理
+                        复制配置命令
                     </Button>
                 ) : (
                     <Space style={{ width: '100%' }}>
@@ -134,9 +136,25 @@ function EnvConfig() {
                     </Space>
                 )}
 
+                <Paragraph
+                    copyable={{ text: SET_ENV_COMMAND }}
+                    style={{
+                        margin: 0,
+                        fontSize: 11,
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 6,
+                        padding: '8px 10px',
+                        whiteSpace: 'pre-wrap',
+                        color: 'rgba(255,255,255,0.75)'
+                    }}
+                >
+                    {SET_ENV_COMMAND}
+                </Paragraph>
+
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
                     <ExclamationCircleOutlined style={{ marginRight: 4 }} />
-                    设置后必须 <Text type="warning" style={{ fontSize: 11 }}>重启终端 (VSCode)</Text> 才能生效
+                    在 <Text type="warning" style={{ fontSize: 11 }}>Claude Code 所在终端</Text> 执行后才会生效
                 </div>
             </Space>
         </Card>

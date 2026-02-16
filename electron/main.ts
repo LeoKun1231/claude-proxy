@@ -236,14 +236,17 @@ ipcMain.handle('get-available-targets', () => {
     return targets;
 });
 ipcMain.handle('check-system-env', () => {
-    const value = store.get('system_env_url', null);
-    return value;
+    return process.env.ANTHROPIC_BASE_URL || null;
 });
 ipcMain.handle('set-system-env', (_, url) => {
     if (url === null) {
-        store.delete('system_env_url');
+        delete process.env.ANTHROPIC_BASE_URL;
+        delete process.env.ANTHROPIC_API_KEY;
     } else {
-        store.set('system_env_url', url);
+        process.env.ANTHROPIC_BASE_URL = String(url);
+        if (!process.env.ANTHROPIC_API_KEY) {
+            process.env.ANTHROPIC_API_KEY = 'sk-local-proxy';
+        }
     }
     return true;
 });
