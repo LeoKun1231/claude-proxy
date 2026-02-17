@@ -12,6 +12,10 @@ services:
       PROXY_PORT: "5055"
       AUTO_START_PROXY: "true"
       DATA_DIR: "/app/data"
+      REWRITE_LOCALHOST_FOR_DOCKER: "true"
+      DOCKER_HOST_ALIAS: "host.docker.internal"
     volumes:
       - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: always

@@ -15,6 +15,8 @@ ENV WEB_PORT=5056
 ENV PROXY_PORT=5055
 ENV AUTO_START_PROXY=true
 ENV DATA_DIR=/app/data
+ENV REWRITE_LOCALHOST_FOR_DOCKER=true
+ENV DOCKER_HOST_ALIAS=host.docker.internal
 
 COPY package*.json ./
 RUN npm ci --omit=dev

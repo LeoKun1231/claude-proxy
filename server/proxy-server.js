@@ -1,9 +1,12 @@
 const http = require('http');
 const https = require('https');
+const fs = require('fs');
 
 let server = null;
 let currentPort = 5055;
 let configProvider = () => ({ mapping: { main: 'pass' }, providers: {} });
+const SHOULD_REWRITE_LOCALHOST = String(process.env.REWRITE_LOCALHOST_FOR_DOCKER || '').toLowerCase() === 'true';
+const DOCKER_HOST_ALIAS = String(process.env.DOCKER_HOST_ALIAS || 'host.docker.internal');
 
 function setConfigProvider(getConfig) {
     configProvider = typeof getConfig === 'function'
@@ -59,6 +62,50 @@ function getProviderConfig(target, providers) {
     return null;
 }
 
+function isDockerContainer() {
+    if (String(process.env.DOCKER_CONTAINER || '').toLowerCase() === 'true') {
+        return true;
+    }
+    return fs.existsSync('/.dockerenv');
+}
+
+function normalizeBaseUrlForDocker(baseUrl) {
+    // 容器内若配置 localhost 上游，则自动转为宿主机别名，避免回环到容器自身
+    const normalized = String(baseUrl || '').replace(/\/$/, '');
+    if (!normalized || !SHOULD_REWRITE_LOCALHOST || !isDockerContainer()) {
+        return normalized;
+    }
+
+    try {
+        const parsed = new URL(normalized);
+        const localHosts = ['localhost', '127.0.0.1', '::1'];
+        if (!localHosts.includes(parsed.hostname)) {
+            return normalized;
+        }
+
+        parsed.hostname = DOCKER_HOST_ALIAS;
+        return parsed.toString().replace(/\/$/, '');
+    } catch (_error) {
+        return normalized;
+    }
+}
+
+function buildProxyErrorHint(error, originalBaseUrl, targetUrl) {
+    // 根据常见容器网络错误补充可执行提示，便于快速定位
+    const base = String(originalBaseUrl || '');
+    const isLocalOrigin = /https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(base);
+
+    if (error?.code === 'ECONNREFUSED' && isLocalOrigin && isDockerContainer()) {
+        return '检测到容器内使用 localhost 上游地址，请改为 http://host.docker.internal:<port>。';
+    }
+
+    if (error?.code === 'ENOTFOUND' && targetUrl?.hostname === 'host.docker.internal') {
+        return '容器内无法解析 host.docker.internal，请在 docker-compose 中配置 extra_hosts。';
+    }
+
+    return '';
+}
+
 function handleProxyRequest(req, res, logCallback) {
     const appConfig = configProvider() || {};
     const mainMapping = appConfig.mapping?.main || 'pass';
@@ -87,7 +134,8 @@ function handleProxyRequest(req, res, logCallback) {
 
     req.on('end', () => {
         try {
-            const baseUrl = String(providerConfig.baseUrl || '').replace(/\/$/, '');
+            const originalBaseUrl = String(providerConfig.baseUrl || '').replace(/\/$/, '');
+            const baseUrl = normalizeBaseUrlForDocker(originalBaseUrl);
             const reqPath = String(req.url || '').replace(/^\//, '');
             const targetUrl = new URL(`${baseUrl}/${reqPath}`);
             const targetPath = targetUrl.pathname + targetUrl.search;
@@ -163,13 +211,15 @@ function handleProxyRequest(req, res, logCallback) {
             });
 
             proxyReq.on('error', (error) => {
+                const hint = buildProxyErrorHint(error, originalBaseUrl, targetUrl);
+                const detail = hint ? `${error.message} | ${hint}` : error.message;
                 if (!res.headersSent) {
                     res.writeHead(502, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: `Proxy Error: ${error.message}` }));
+                    res.end(JSON.stringify({ error: `Proxy Error: ${detail}` }));
                 }
 
                 logCallback?.({
-                    message: `[ERR] 请求失败: ${error.message}`,
+                    message: `[ERR] 请求失败: ${detail}`,
                     type: 'error',
                     timestamp: new Date().toISOString(),
                 });
