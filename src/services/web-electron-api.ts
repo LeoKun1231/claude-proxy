@@ -1,3 +1,5 @@
+import type { AppConfig, LegacyMappingType } from '../types/config';
+
 type ProxyLogPayload = { message: string; type: 'info' | 'warn' | 'error'; timestamp: string };
 type ConfigUpdatePayload = { key: string; updatedAt: number };
 
@@ -139,7 +141,7 @@ function createWebElectronAPI() {
             await post('/config', { key, value });
         },
         async getAllConfig() {
-            return requestJson('/config/all');
+            return requestJson<AppConfig>('/config/all');
         },
         async getAutoLaunch() {
             return requestJson<boolean>('/auto-launch');
@@ -148,10 +150,10 @@ function createWebElectronAPI() {
             const result = await post('/auto-launch', { enabled }) as { success: boolean };
             return Boolean(result?.success);
         },
-        async getMapping(modelType: 'haiku' | 'main') {
+        async getMapping(modelType: LegacyMappingType) {
             return requestJson<string>(`/mapping/${modelType}`);
         },
-        async setMapping(modelType: 'haiku' | 'main', value: string) {
+        async setMapping(modelType: LegacyMappingType, value: string) {
             await post(`/mapping/${modelType}`, { value });
         },
         async getAvailableTargets() {
@@ -229,24 +231,36 @@ function createWebElectronAPI() {
             proxyLogCallbacks.add(callback);
             ensureEventSource();
         },
-        removeProxyLogListener() {
-            proxyLogCallbacks.clear();
+        removeProxyLogListener(callback?: (data: ProxyLogPayload) => void) {
+            if (callback) {
+                proxyLogCallbacks.delete(callback);
+            } else {
+                proxyLogCallbacks.clear();
+            }
             closeEventSourceIfIdle();
         },
         onConfigUpdated(callback: (payload: ConfigUpdatePayload) => void) {
             configUpdatedCallbacks.add(callback);
             ensureEventSource();
         },
-        removeConfigUpdatedListener() {
-            configUpdatedCallbacks.clear();
+        removeConfigUpdatedListener(callback?: (payload: ConfigUpdatePayload) => void) {
+            if (callback) {
+                configUpdatedCallbacks.delete(callback);
+            } else {
+                configUpdatedCallbacks.clear();
+            }
             closeEventSourceIfIdle();
         },
         onConfigImported(callback: () => void) {
             configImportedCallbacks.add(callback);
             ensureEventSource();
         },
-        removeConfigImportedListener() {
-            configImportedCallbacks.clear();
+        removeConfigImportedListener(callback?: () => void) {
+            if (callback) {
+                configImportedCallbacks.delete(callback);
+            } else {
+                configImportedCallbacks.clear();
+            }
             closeEventSourceIfIdle();
         },
     };

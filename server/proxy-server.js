@@ -5,7 +5,7 @@ const crypto = require("crypto");
 
 let server = null;
 let currentPort = 5055;
-let configProvider = () => ({ mapping: { main: "pass" }, providers: {} });
+let configProvider = () => ({ mapping: { main: "pass" }, modelRoutes: [], providers: {} });
 const SHOULD_REWRITE_LOCALHOST =
   String(process.env.REWRITE_LOCALHOST_FOR_DOCKER || "").toLowerCase() ===
   "true";
@@ -61,7 +61,7 @@ function setConfigProvider(getConfig) {
   configProvider =
     typeof getConfig === "function"
       ? getConfig
-      : () => ({ mapping: { main: "pass" }, providers: {} });
+      : () => ({ mapping: { main: "pass" }, modelRoutes: [], providers: {} });
 }
 
 function getBuiltinProviderUrl(providerId) {
@@ -73,6 +73,98 @@ function getBuiltinProviderUrl(providerId) {
     deepseek: "https://api.deepseek.com/anthropic",
   };
   return urls[providerId] || "https://api.anthropic.com";
+}
+
+function getProviderRegistryEntry(providerId, providers) {
+  const normalizedProviderId = String(providerId || "").trim();
+  if (!normalizedProviderId) {
+    return null;
+  }
+
+  if (
+    providers &&
+    normalizedProviderId !== "customProviders" &&
+    Object.prototype.hasOwnProperty.call(providers, normalizedProviderId)
+  ) {
+    return {
+      type: "builtin",
+      settings: providers[normalizedProviderId] || {},
+      label: normalizedProviderId,
+    };
+  }
+
+  const customProviders = Array.isArray(providers?.customProviders)
+    ? providers.customProviders
+    : [];
+  const custom = customProviders.find((item) => item.id === normalizedProviderId);
+
+  if (!custom) {
+    return null;
+  }
+
+  return {
+    type: "custom",
+    settings: custom,
+    label: custom.name || normalizedProviderId,
+  };
+}
+
+function resolveProviderBaseUrl(providerId, providerSettings, overrideBaseUrl) {
+  const baseUrlOverride = String(overrideBaseUrl || "").trim();
+  if (baseUrlOverride) {
+    return baseUrlOverride;
+  }
+
+  const configuredBaseUrl = String(providerSettings?.baseUrl || "").trim();
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
+  if (["litellm", "cliproxyapi"].includes(providerId)) {
+      const localPort = Number(providerSettings?.port);
+      const safePort =
+        Number.isFinite(localPort) && localPort > 0 ? localPort : 4100;
+      return `http://127.0.0.1:${safePort}`;
+  }
+
+  return getBuiltinProviderUrl(providerId);
+}
+
+function buildResolvedProviderConfig({
+  providerId,
+  modelName,
+  providers,
+  overrideBaseUrl,
+  overrideApiKey,
+  providerLabel,
+}) {
+  const normalizedProviderId = String(providerId || "").trim();
+  if (!normalizedProviderId) {
+    return null;
+  }
+
+  const entry = getProviderRegistryEntry(normalizedProviderId, providers);
+  if (!entry) {
+    return null;
+  }
+
+  const baseUrl = resolveProviderBaseUrl(
+    normalizedProviderId,
+    entry.settings,
+    overrideBaseUrl,
+  );
+  const apiKey =
+    typeof overrideApiKey === "string" && overrideApiKey !== ""
+      ? overrideApiKey
+      : String(entry.settings?.apiKey || "");
+
+  return {
+    providerId: normalizedProviderId,
+    providerLabel: String(providerLabel || entry.label || normalizedProviderId),
+    baseUrl,
+    apiKey,
+    modelName: String(modelName || "").trim(),
+  };
 }
 
 function getProviderConfig(target, providers) {
@@ -87,43 +179,83 @@ function getProviderConfig(target, providers) {
 
   const providerId = target.substring(0, separator);
   const modelName = target.substring(separator + 1);
+  return buildResolvedProviderConfig({
+    providerId,
+    modelName,
+    providers,
+  });
+}
 
-  if (providers[providerId]) {
-    const providerSettings = providers[providerId] || {};
-    const overrideBaseUrl = String(providerSettings.baseUrl || "").trim();
-    let baseUrl = overrideBaseUrl || getBuiltinProviderUrl(providerId);
+function findModelRoute(modelRoutes, requestedModel) {
+  const normalizedModel = String(requestedModel || "").trim();
+  if (!normalizedModel || !Array.isArray(modelRoutes)) {
+    return null;
+  }
 
-    // LiteLLM/CLIProxyAPI 默认走本地端口，可在配置中覆盖 baseUrl
-    if (!overrideBaseUrl && ["litellm", "cliproxyapi"].includes(providerId)) {
-      const localPort = Number(providerSettings.port);
-      const safePort =
-        Number.isFinite(localPort) && localPort > 0 ? localPort : 4100;
-      baseUrl = `http://127.0.0.1:${safePort}`;
+  return (
+    modelRoutes.find((route) => {
+      if (!route || route.enabled === false) {
+        return false;
+      }
+
+      return String(route.sourceModel || "").trim() === normalizedModel;
+    }) || null
+  );
+}
+
+function resolveRequestProviderConfig(appConfig, requestedModel) {
+  const providers = appConfig?.providers || {};
+  const matchedRoute = findModelRoute(appConfig?.modelRoutes, requestedModel);
+
+  if (matchedRoute) {
+    const providerConfig = buildResolvedProviderConfig({
+      providerId: matchedRoute.providerId,
+      modelName: matchedRoute.targetModel || requestedModel,
+      providers,
+      overrideBaseUrl: matchedRoute.baseUrl,
+      overrideApiKey: matchedRoute.apiKey,
+      providerLabel: matchedRoute.providerLabel,
+    });
+
+    if (!providerConfig || !providerConfig.baseUrl) {
+      return {
+        errorMessage: `模型路由配置无效: ${matchedRoute.id || matchedRoute.sourceModel || requestedModel}`,
+        resolutionSource: "modelRoute",
+        route: matchedRoute,
+      };
     }
 
     return {
-      providerId,
-      baseUrl,
-      apiKey: providerSettings.apiKey,
-      modelName,
+      providerConfig: {
+        ...providerConfig,
+        routeId: matchedRoute.id,
+        sourceModel: matchedRoute.sourceModel,
+      },
+      resolutionSource: "modelRoute",
+      route: matchedRoute,
     };
   }
 
-  const customProviders = Array.isArray(providers.customProviders)
-    ? providers.customProviders
-    : [];
-  const custom = customProviders.find((item) => item.id === providerId);
-
-  if (custom) {
+  const mainMapping = appConfig?.mapping?.main || "pass";
+  const providerConfig = getProviderConfig(mainMapping, providers);
+  if (providerConfig) {
     return {
-      providerId,
-      baseUrl: custom.baseUrl,
-      apiKey: custom.apiKey,
-      modelName,
+      providerConfig,
+      resolutionSource: "legacyMapping",
+      legacyTarget: mainMapping,
     };
   }
 
-  return null;
+  const errorMessage =
+    mainMapping === "pass"
+      ? "未命中模型路由，且默认回退映射未配置"
+      : `未命中模型路由，且默认回退 Provider 配置无效: ${mainMapping}`;
+
+  return {
+    errorMessage,
+    resolutionSource: "missing",
+    legacyTarget: mainMapping,
+  };
 }
 
 function isDockerContainer() {
@@ -919,23 +1051,6 @@ function handleProxyRequest(req, res, logCallback) {
   const requestStartedAt = Date.now();
   const requestId = createRequestId(req);
   const appConfig = configProvider() || {};
-  const mainMapping = appConfig.mapping?.main || "pass";
-  const providerConfig = getProviderConfig(
-    mainMapping,
-    appConfig.providers || {},
-  );
-
-  if (!providerConfig) {
-    const errorMsg =
-      mainMapping === "pass"
-        ? "透传模式未实现，请配置目标 Provider"
-        : `未找到 Provider 配置: ${mainMapping}`;
-
-    logProxy(logCallback, "error", `[ERR][${requestId}] ${errorMsg}`);
-    res.writeHead(400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: errorMsg, requestId }));
-    return;
-  }
 
   let body = "";
   let endHandled = false;
@@ -975,19 +1090,9 @@ function handleProxyRequest(req, res, logCallback) {
     try {
       const receiveDoneAt = Date.now();
       const receiveMs = receiveDoneAt - requestStartedAt;
-      const originalBaseUrl = String(providerConfig.baseUrl || "").replace(
-        /\/$/,
-        "",
-      );
-      const baseUrl = normalizeBaseUrlForDocker(originalBaseUrl);
       const incomingUrl = parseRequestUrl(req.url);
       const incomingPathname = normalizePathname(incomingUrl.pathname);
       const incomingSearch = String(incomingUrl.search || "");
-
-      let finalBody = body;
-      let modelDisplay = providerConfig.modelName || "unknown";
-      let openAICompatMode = null;
-      let openAIStreamRequested = false;
       const contentType = readHeaderValue(
         req.headers,
         "content-type",
@@ -1010,6 +1115,44 @@ function handleProxyRequest(req, res, logCallback) {
           parsedBody = null;
         }
       }
+
+      const requestedModel =
+        parsedBody && typeof parsedBody.model === "string"
+          ? String(parsedBody.model).trim()
+          : "";
+      const routeResolution = resolveRequestProviderConfig(
+        appConfig,
+        requestedModel,
+      );
+      const providerConfig = routeResolution.providerConfig;
+
+      if (!providerConfig) {
+        const errorMsg = routeResolution.errorMessage || "未找到可用的上游配置";
+        const resolutionTag =
+          routeResolution.resolutionSource === "modelRoute"
+            ? "route_invalid"
+            : "route_missing";
+        const requestedModelText = requestedModel || "(empty)";
+
+        logProxy(
+          logCallback,
+          "error",
+          `[ERR][${requestId}] ${errorMsg} | resolution=${resolutionTag} requested_model=${requestedModelText}`,
+        );
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: errorMsg, requestId }));
+        return;
+      }
+
+      const originalBaseUrl = String(providerConfig.baseUrl || "").replace(
+        /\/$/,
+        "",
+      );
+      const baseUrl = normalizeBaseUrlForDocker(originalBaseUrl);
+      let finalBody = body;
+      let modelDisplay = providerConfig.modelName || "unknown";
+      let openAICompatMode = null;
+      let openAIStreamRequested = false;
 
       const shouldUseOpenAICompat =
         isOpenAIChatCompletionsPath(incomingPathname) &&
@@ -1044,6 +1187,20 @@ function handleProxyRequest(req, res, logCallback) {
       const reqPath = `${String(upstreamPathname || "/").replace(/^\/+/, "")}${incomingSearch}`;
       const targetUrl = new URL(`${baseUrl}/${reqPath}`);
       const targetPath = targetUrl.pathname + targetUrl.search;
+
+      if (routeResolution.resolutionSource === "modelRoute") {
+        logProxy(
+          logCallback,
+          "info",
+          `[ROUTE][${requestId}] model_route_hit route=${providerConfig.routeId || "unknown"} source=${providerConfig.sourceModel || requestedModel || "(empty)"} target=${providerConfig.modelName || "(empty)"} provider=${providerConfig.providerLabel || providerConfig.providerId}`,
+        );
+      } else if (routeResolution.resolutionSource === "legacyMapping") {
+        logProxy(
+          logCallback,
+          "info",
+          `[ROUTE][${requestId}] legacy_fallback target=${routeResolution.legacyTarget || "pass"} requested_model=${requestedModel || "(empty)"}`,
+        );
+      }
 
       if (openAICompatMode === "chat_completions") {
         logProxy(

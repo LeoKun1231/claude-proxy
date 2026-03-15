@@ -1,0 +1,198 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1771291709530,
+  "projectRoot": "/mnt/c/Users/pc/Desktop/aaaaa/claude-proxy-main",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "express",
+        "version": "4.21.2",
+        "category": "backend"
+      },
+      {
+        "name": "react",
+        "version": "18.2.0",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "18.2.0",
+        "category": "frontend"
+      },
+      {
+        "name": "vite",
+        "version": "7.3.1",
+        "category": "build"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+      "dev:web": "vite",
+      "dev:api": "node server/index.js",
+      "build": "vite build",
+      "preview": "vite preview",
+      "start": "node server/index.js"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": "type-based"
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "public",
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 1,
+      "lastAccessed": 1771291709447,
+      "keyFiles": [
+        "config.json"
+      ]
+    },
+    "design-system": {
+      "path": "design-system",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1771291709450,
+      "keyFiles": []
+    },
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 2,
+      "lastAccessed": 1771291709457,
+      "keyFiles": [
+        "icon.png",
+        "index.html"
+      ]
+    },
+    "dist-electron": {
+      "path": "dist-electron",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1771291709460,
+      "keyFiles": [
+        "main.js",
+        "preload.js"
+      ]
+    },
+    "electron": {
+      "path": "electron",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1771291709462,
+      "keyFiles": []
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 1,
+      "lastAccessed": 1771291709464,
+      "keyFiles": [
+        "icon.png"
+      ]
+    },
+    "release": {
+      "path": "release",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1771291709471,
+      "keyFiles": [
+        "Claude Proxy-1.0.0.AppImage",
+        "builder-debug.yml",
+        "claude-proxy_1.0.0_amd64.snap"
+      ]
+    },
+    "server": {
+      "path": "server",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1771291709474,
+      "keyFiles": [
+        "config-store.js",
+        "index.js",
+        "proxy-server.js"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 3,
+      "lastAccessed": 1771291709477,
+      "keyFiles": [
+        "App.tsx",
+        "main.tsx",
+        "vite-env.d.ts"
+      ]
+    },
+    "dist/assets": {
+      "path": "dist/assets",
+      "purpose": "Static assets",
+      "fileCount": 2,
+      "lastAccessed": 1771291709483,
+      "keyFiles": [
+        "index-By0-_4ok.js",
+        "index-CK9N7PYl.css"
+      ]
+    },
+    "src/components": {
+      "path": "src/components",
+      "purpose": "UI components",
+      "fileCount": 8,
+      "lastAccessed": 1771291709525,
+      "keyFiles": [
+        "EnvConfig.tsx",
+        "FloatBall.css",
+        "FloatBall.tsx"
+      ]
+    },
+    "src/services": {
+      "path": "src/services",
+      "purpose": "Business logic services",
+      "fileCount": 1,
+      "lastAccessed": 1771291709530,
+      "keyFiles": [
+        "web-electron-api.ts"
+      ]
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}

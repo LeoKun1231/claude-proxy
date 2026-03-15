@@ -143,7 +143,7 @@ export function useLogs(options: UseLogsOptions = {}) {
         window.electronAPI.onProxyLog(handleLog);
 
         return () => {
-            window.electronAPI.removeProxyLogListener();
+            window.electronAPI.removeProxyLogListener(handleLog);
         };
     }, [addLog]);
 

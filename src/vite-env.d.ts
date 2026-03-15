@@ -2,6 +2,7 @@
 
 // 扩展 CSS 属性类型以支持 Electron 特有属性
 import 'react';
+import type { AppConfig, LegacyMappingType } from './types/config';
 
 declare module 'react' {
     interface CSSProperties {
@@ -12,11 +13,11 @@ declare module 'react' {
 interface ElectronAPI {
     getConfig: (key: string) => Promise<any>;
     setConfig: (key: string, value: any) => Promise<void>;
-    getAllConfig: () => Promise<any>;
+    getAllConfig: () => Promise<AppConfig>;
     getAutoLaunch: () => Promise<boolean>;
     setAutoLaunch: (enabled: boolean) => Promise<boolean>;
-    getMapping: (modelType: 'haiku' | 'main') => Promise<string>;
-    setMapping: (modelType: 'haiku' | 'main', value: string) => Promise<void>;
+    getMapping: (modelType: LegacyMappingType) => Promise<string>;
+    setMapping: (modelType: LegacyMappingType, value: string) => Promise<void>;
     getAvailableTargets: () => Promise<string[]>;
     checkSystemEnv: () => Promise<string | null>;
     setSystemEnv: (url: string | null) => Promise<boolean>;
@@ -35,11 +36,11 @@ interface ElectronAPI {
     onContextMenuCommand: (callback: (value: string) => void) => void;
     removeContextMenuListener: () => void;
     onProxyLog: (callback: (data: { message: string; type: string; timestamp: string }) => void) => void;
-    removeProxyLogListener: () => void;
+    removeProxyLogListener: (callback?: (data: { message: string; type: string; timestamp: string }) => void) => void;
     onConfigUpdated: (callback: (payload: { key: string; updatedAt: number }) => void) => void;
-    removeConfigUpdatedListener: () => void;
+    removeConfigUpdatedListener: (callback?: (payload: { key: string; updatedAt: number }) => void) => void;
     onConfigImported: (callback: () => void) => void;
-    removeConfigImportedListener: () => void;
+    removeConfigImportedListener: (callback?: () => void) => void;
 }
 
 declare global {

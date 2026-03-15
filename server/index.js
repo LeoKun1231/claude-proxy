@@ -34,17 +34,41 @@ function emitEvent(type, payload) {
 }
 
 function persistConfig(nextConfig) {
-    appConfig = nextConfig;
-    writeConfig(appConfig);
+    appConfig = writeConfig(nextConfig);
 }
 
 function sendProxyLog(log) {
     emitEvent('proxy-log', log);
 }
 
+function addTarget(targets, target) {
+    const normalized = String(target || '').trim();
+    if (!normalized || targets.includes(normalized)) {
+        return;
+    }
+
+    targets.push(normalized);
+}
+
 function getAvailableTargets(config) {
     const targets = ['pass'];
     const providers = config.providers || {};
+    const modelRoutes = Array.isArray(config.modelRoutes) ? config.modelRoutes : [];
+
+    modelRoutes.forEach((route) => {
+        if (!route || route.enabled === false) {
+            return;
+        }
+
+        if (!route.providerId || !route.targetModel) {
+            return;
+        }
+
+        addTarget(targets, `${route.providerId}:${route.targetModel}`);
+    });
+
+    addTarget(targets, config.mapping?.main);
+    addTarget(targets, config.mapping?.haiku);
 
     Object.keys(providers).forEach((key) => {
         if (key === 'customProviders') {
@@ -54,10 +78,7 @@ function getAvailableTargets(config) {
         const provider = providers[key];
         if (provider && provider.enabled && Array.isArray(provider.models)) {
             provider.models.forEach((model) => {
-                const target = `${key}:${model}`;
-                if (model && !targets.includes(target)) {
-                    targets.push(target);
-                }
+                addTarget(targets, `${key}:${model}`);
             });
         }
     });
@@ -69,10 +90,7 @@ function getAvailableTargets(config) {
     customProviders.forEach((provider) => {
         if (provider && provider.enabled && Array.isArray(provider.models)) {
             provider.models.forEach((model) => {
-                const target = `${provider.id}:${model}`;
-                if (model && !targets.includes(target)) {
-                    targets.push(target);
-                }
+                addTarget(targets, `${provider.id}:${model}`);
             });
         }
     });

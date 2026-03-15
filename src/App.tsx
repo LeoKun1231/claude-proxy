@@ -15,6 +15,7 @@ import Settings from './components/Settings';
 
 import StatusBar from './components/StatusBar';
 import ModelMapping from './components/ModelMapping';
+import ModelRoutes from './components/ModelRoutes';
 import ProviderConfig from './components/ProviderConfig';
 import LogViewer from './components/LogViewer';
 import FloatBall from './components/FloatBall';
@@ -311,14 +312,14 @@ function App() {
                                             title={
                                                 <Space>
                                                     <SettingOutlined style={{ color: '#52c41a' }} />
-                                                    <span>模型映射</span>
+                                                    <span>模型路由 / 默认回退</span>
                                                 </Space>
                                             }
                                             size="small"
                                             style={cardStyle}
                                             headStyle={cardHeadStyle}
                                         >
-                                            <ModelMapping onMappingChange={handleRestart} />
+                                            <ModelMapping />
                                         </Card>
 
                                         {/* 环境变量配置 */}
@@ -360,14 +361,28 @@ function App() {
                                         <Card
                                             title={
                                                 <Space>
-                                                    <SettingOutlined style={{ color: '#13c2c2' }} />
-                                                    <span>Provider 配置</span>
+                                                    <SettingOutlined style={{ color: '#722ed1' }} />
+                                                    <span>模型路由配置</span>
                                                 </Space>
                                             }
                                             size="small"
                                             style={cardStyle}
                                             headStyle={cardHeadStyle}
-                                            bodyStyle={{ maxHeight: 'calc(100dvh - 310px)', overflowY: 'auto' }}
+                                        >
+                                            <ModelRoutes />
+                                        </Card>
+
+                                        <Card
+                                            title={
+                                                <Space>
+                                                    <SettingOutlined style={{ color: '#13c2c2' }} />
+                                                    <span>自定义 Provider 配置</span>
+                                                </Space>
+                                            }
+                                            size="small"
+                                            style={cardStyle}
+                                            headStyle={cardHeadStyle}
+                                            bodyStyle={{ maxHeight: 'calc(100dvh - 460px)', overflowY: 'auto' }}
                                         >
                                             <ProviderConfig />
                                         </Card>

@@ -60,8 +60,15 @@ function FloatBall() {
         const interval = setInterval(loadData, 5000);
         loadData();
 
-        window.electronAPI.onConfigImported?.(() => loadData());
-        window.electronAPI.onConfigUpdated?.(() => loadData());
+        const handleConfigImported = () => {
+            loadData();
+        };
+        const handleConfigUpdated = () => {
+            loadData();
+        };
+
+        window.electronAPI.onConfigImported?.(handleConfigImported);
+        window.electronAPI.onConfigUpdated?.(handleConfigUpdated);
         window.electronAPI.onContextMenuCommand?.(async (value) => {
             try {
                 await window.electronAPI.setMapping('main', value);
@@ -76,8 +83,8 @@ function FloatBall() {
         return () => {
             clearInterval(interval);
             window.electronAPI.removeContextMenuListener?.();
-            window.electronAPI.removeConfigImportedListener?.();
-            window.electronAPI.removeConfigUpdatedListener?.();
+            window.electronAPI.removeConfigImportedListener?.(handleConfigImported);
+            window.electronAPI.removeConfigUpdatedListener?.(handleConfigUpdated);
         };
     }, [loadData]);
 

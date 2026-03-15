@@ -1,21 +1,10 @@
 /**
  * Provider 配置组件
- * 支持多个自定义 Provider
+ * 仅保留自定义 Provider 配置
  */
 import { useState, useEffect, useRef } from 'react';
-import { Collapse, Form, Input, Switch, Button, Space, Tag, message, Divider, Card, Popconfirm, Typography } from 'antd';
+import { Form, Input, Switch, Button, Space, Tag, message, Divider, Card, Popconfirm, Typography, Empty } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-
-// 内置 Provider 定义
-const BUILTIN_PROVIDERS = [
-    { key: 'anthropic', name: 'Anthropic 官方', endpoint: 'https://api.anthropic.com' },
-    { key: 'glm', name: 'GLM (智谱AI)', endpoint: 'https://open.bigmodel.cn/api/anthropic' },
-    { key: 'kimi', name: 'Kimi (Moonshot)', endpoint: 'https://api.moonshot.cn/anthropic' },
-    { key: 'minimax', name: 'MiniMax', endpoint: 'https://api.minimaxi.com/anthropic' },
-    { key: 'deepseek', name: 'DeepSeek', endpoint: 'https://api.deepseek.com/anthropic' },
-    { key: 'litellm', name: 'LiteLLM', endpoint: '本地代理' },
-    { key: 'cliproxyapi', name: 'CLIProxyAPI', endpoint: '本地代理' }
-];
 
 interface ProviderConfigData {
     enabled: boolean;
@@ -36,10 +25,7 @@ interface CustomProviderData extends ProviderConfigData {
 const { Text } = Typography;
 
 function ProviderConfig() {
-    const [configs, setConfigs] = useState<Record<string, ProviderConfigData>>({});
     const [customProviders, setCustomProviders] = useState<CustomProviderData[]>([]);
-    const [newModel, setNewModel] = useState<Record<string, string>>({});
-    const builtinSaveTimerRef = useRef<Record<string, number>>({});
     const customSaveTimerRef = useRef<number | null>(null);
 
     // 加载配置
@@ -47,7 +33,6 @@ function ProviderConfig() {
         const loadConfigs = async () => {
             try {
                 const allConfig = await window.electronAPI.getAllConfig();
-                setConfigs(allConfig.providers || {});
                 setCustomProviders(allConfig.providers?.customProviders || []);
             } catch (error) {
                 console.error('加载配置失败:', error);
@@ -55,21 +40,6 @@ function ProviderConfig() {
         };
         loadConfigs();
     }, []);
-
-    // 防抖保存内置 Provider，避免输入时频繁写入
-    const queueSaveProvider = (providerKey: string, providerConfig: ProviderConfigData) => {
-        if (builtinSaveTimerRef.current[providerKey]) {
-            window.clearTimeout(builtinSaveTimerRef.current[providerKey]);
-        }
-
-        builtinSaveTimerRef.current[providerKey] = window.setTimeout(async () => {
-            try {
-                await window.electronAPI.setConfig(`providers.${providerKey}`, providerConfig);
-            } catch (error: any) {
-                message.error('自动保存失败: ' + (error?.message || '未知错误'));
-            }
-        }, 400);
-    };
 
     // 防抖保存自定义 Provider 列表
     const queueSaveCustomProviders = (nextProviders: CustomProviderData[]) => {
@@ -88,48 +58,11 @@ function ProviderConfig() {
 
     useEffect(() => {
         return () => {
-            Object.values(builtinSaveTimerRef.current).forEach((timer) => window.clearTimeout(timer));
             if (customSaveTimerRef.current) {
                 window.clearTimeout(customSaveTimerRef.current);
             }
         };
     }, []);
-
-    // 更新内置 Provider 配置
-    const updateProvider = (providerKey: string, field: string, value: any) => {
-        setConfigs((prev) => {
-            const nextProvider = {
-                ...(prev[providerKey] || { enabled: false, apiKey: '', models: [] }),
-                [field]: value
-            };
-            queueSaveProvider(providerKey, nextProvider);
-            return {
-                ...prev,
-                [providerKey]: nextProvider
-            };
-        });
-    };
-
-    // 添加模型到内置 Provider
-    const addModel = (providerKey: string) => {
-        const modelName = newModel[providerKey]?.trim();
-        if (!modelName) return;
-
-        const currentModels = configs[providerKey]?.models || [];
-        if (currentModels.includes(modelName)) {
-            message.warning('模型已存在');
-            return;
-        }
-
-        updateProvider(providerKey, 'models', [...currentModels, modelName]);
-        setNewModel({ ...newModel, [providerKey]: '' });
-    };
-
-    // 删除模型
-    const removeModel = (providerKey: string, modelName: string) => {
-        const currentModels = configs[providerKey]?.models || [];
-        updateProvider(providerKey, 'models', currentModels.filter((m: string) => m !== modelName));
-    };
 
     // ========== 自定义 Provider 相关 ==========
 
@@ -168,129 +101,24 @@ function ProviderConfig() {
         message.success('已删除并自动保存');
     };
 
-    // 添加模型到自定义 Provider
-    const addCustomModel = (providerId: string) => {
-        const modelName = newModel[providerId]?.trim();
-        if (!modelName) return;
-
-        const provider = customProviders.find((p) => p.id === providerId);
-        if (!provider) return;
-
-        if (provider.models.includes(modelName)) {
-            message.warning('模型已存在');
-            return;
-        }
-
-        updateCustomProvider(providerId, 'models', [...provider.models, modelName]);
-        setNewModel({ ...newModel, [providerId]: '' });
-    };
-
-    // 删除自定义 Provider 的模型
-    const removeCustomModel = (providerId: string, modelName: string) => {
-        const provider = customProviders.find((p) => p.id === providerId);
-        if (!provider) return;
-        updateCustomProvider(providerId, 'models', provider.models.filter((m) => m !== modelName));
-    };
-
-    // ========== 渲染 ==========
-
-    // 内置 Provider 面板
-    const builtinItems = BUILTIN_PROVIDERS.map((provider) => {
-        const config = configs[provider.key] || { enabled: false, apiKey: '', models: [] };
-
-        return {
-            key: provider.key,
-            label: (
-                <Space>
-                    <span>{provider.name}</span>
-                    {config.enabled && <Tag color="success">已启用</Tag>}
-                </Space>
-            ),
-            children: (
-                <Form layout="vertical" size="small">
-                    <Form.Item label="启用">
-                        <Switch
-                            checked={config.enabled}
-                            onChange={(checked) => updateProvider(provider.key, 'enabled', checked)}
-                        />
-                    </Form.Item>
-
-                    <Form.Item label="API Key">
-                        <Input.Password
-                            value={config.apiKey}
-                            onChange={(e) => updateProvider(provider.key, 'apiKey', e.target.value)}
-                            placeholder="输入 API 密钥"
-                        />
-                    </Form.Item>
-
-                    {['litellm', 'cliproxyapi'].includes(provider.key) && (
-                        <>
-                            <Form.Item label="程序路径">
-                                <Input
-                                    value={config.binPath}
-                                    onChange={(e) => updateProvider(provider.key, 'binPath', e.target.value)}
-                                    placeholder="~/.local/bin/litellm"
-                                />
-                            </Form.Item>
-                            <Form.Item label="端口">
-                                <Input
-                                    type="number"
-                                    value={config.port}
-                                    onChange={(e) => updateProvider(provider.key, 'port', parseInt(e.target.value))}
-                                    placeholder="4100"
-                                />
-                            </Form.Item>
-                            <Form.Item label="配置文件路径">
-                                <Input
-                                    value={config.configPath}
-                                    onChange={(e) => updateProvider(provider.key, 'configPath', e.target.value)}
-                                    placeholder="~/.claude/proxy/litellm.yaml"
-                                />
-                            </Form.Item>
-                        </>
-                    )}
-
-                    <Form.Item label="可用模型">
-                        <Space wrap style={{ marginBottom: 8 }}>
-                            {(config.models || []).map((model: string) => (
-                                <Tag key={model} closable onClose={() => removeModel(provider.key, model)}>
-                                    {model}
-                                </Tag>
-                            ))}
-                        </Space>
-                        <Space.Compact style={{ width: '100%' }}>
-                            <Input
-                                value={newModel[provider.key] || ''}
-                                onChange={(e) => setNewModel({ ...newModel, [provider.key]: e.target.value })}
-                                placeholder="输入模型名称"
-                                onPressEnter={() => addModel(provider.key)}
-                            />
-                            <Button icon={<PlusOutlined />} onClick={() => addModel(provider.key)}>
-                                添加
-                            </Button>
-                        </Space.Compact>
-                    </Form.Item>
-
-                    <Form.Item>
-                        <Text type="secondary">修改后自动保存</Text>
-                    </Form.Item>
-
-                    {provider.endpoint !== '本地代理' && (
-                        <div style={{ marginTop: 8 }}>
-                            <Tag>Endpoint: {provider.endpoint}</Tag>
-                        </div>
-                    )}
-                </Form>
-            )
-        };
-    });
-
     return (
         <div>
-            {/* 内置 Provider */}
-            <Collapse accordion items={builtinItems} style={{ background: 'transparent' }} />
+            <Card size="small" style={{ marginBottom: 12, background: 'rgba(255,255,255,0.02)' }}>
+                <Text type="secondary">
+                    这里只维护自定义 Provider 的连接信息。模型选择改为全局配置，在“模型路由 / 默认回退”区域统一维护。
+                </Text>
+            </Card>
 
             <Divider>自定义 Provider</Divider>
+
+            {customProviders.length === 0 && (
+                <Card size="small" style={{ marginBottom: 12, background: 'rgba(255,255,255,0.02)' }}>
+                    <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description="还没有自定义 Provider，先添加一个再去配置模型路由。"
+                    />
+                </Card>
+            )}
 
             {/* 自定义 Provider 列表 */}
             {customProviders.map((custom) => (
@@ -342,25 +170,8 @@ function ProviderConfig() {
                             />
                         </Form.Item>
 
-                        <Form.Item label="可用模型">
-                            <Space wrap style={{ marginBottom: 8 }}>
-                                {custom.models.map((model) => (
-                                    <Tag key={model} closable onClose={() => removeCustomModel(custom.id, model)}>
-                                        {model}
-                                    </Tag>
-                                ))}
-                            </Space>
-                            <Space.Compact style={{ width: '100%' }}>
-                                <Input
-                                    value={newModel[custom.id] || ''}
-                                    onChange={(e) => setNewModel({ ...newModel, [custom.id]: e.target.value })}
-                                    placeholder="输入模型名称"
-                                    onPressEnter={() => addCustomModel(custom.id)}
-                                />
-                                <Button icon={<PlusOutlined />} onClick={() => addCustomModel(custom.id)}>
-                                    添加
-                                </Button>
-                            </Space.Compact>
+                        <Form.Item>
+                            <Text type="secondary">模型由全局“模型路由 / 默认回退”统一控制</Text>
                         </Form.Item>
                     </Form>
                 </Card>
