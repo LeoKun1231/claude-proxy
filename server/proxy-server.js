@@ -186,9 +186,37 @@ function getProviderConfig(target, providers) {
   });
 }
 
+function normalizeRouteMatchModel(model) {
+  const normalized = String(model || "").trim().toLowerCase();
+  if (!normalized.startsWith("claude-")) {
+    return normalized;
+  }
+
+  // Claude 4.x models often appear as both `4.6` and `4-6`.
+  return normalized.replace(/\./g, "-");
+}
+
 function findModelRoute(modelRoutes, requestedModel) {
   const normalizedModel = String(requestedModel || "").trim();
   if (!normalizedModel || !Array.isArray(modelRoutes)) {
+    return null;
+  }
+
+  const exactMatch =
+    modelRoutes.find((route) => {
+      if (!route || route.enabled === false) {
+        return false;
+      }
+
+      return String(route.sourceModel || "").trim() === normalizedModel;
+    }) || null;
+
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const normalizedRequestedModel = normalizeRouteMatchModel(normalizedModel);
+  if (!normalizedRequestedModel) {
     return null;
   }
 
@@ -198,7 +226,9 @@ function findModelRoute(modelRoutes, requestedModel) {
         return false;
       }
 
-      return String(route.sourceModel || "").trim() === normalizedModel;
+      return (
+        normalizeRouteMatchModel(route.sourceModel) === normalizedRequestedModel
+      );
     }) || null
   );
 }
@@ -208,9 +238,11 @@ function resolveRequestProviderConfig(appConfig, requestedModel) {
   const matchedRoute = findModelRoute(appConfig?.modelRoutes, requestedModel);
 
   if (matchedRoute) {
+    const routedModelName =
+      String(matchedRoute.targetModel || "").trim() || requestedModel;
     const providerConfig = buildResolvedProviderConfig({
       providerId: matchedRoute.providerId,
-      modelName: requestedModel,
+      modelName: routedModelName,
       providers,
       overrideBaseUrl: matchedRoute.baseUrl,
       overrideApiKey: matchedRoute.apiKey,
@@ -230,6 +262,7 @@ function resolveRequestProviderConfig(appConfig, requestedModel) {
         ...providerConfig,
         routeId: matchedRoute.id,
         sourceModel: matchedRoute.sourceModel,
+        targetModel: matchedRoute.targetModel,
       },
       resolutionSource: "modelRoute",
       route: matchedRoute,

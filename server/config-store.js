@@ -173,6 +173,13 @@ function collectGlobalModels(globalModels, modelRoutes, providers, mapping) {
     addModel(extractModelFromMappingTarget(mapping?.main));
     addModel(extractModelFromMappingTarget(mapping?.haiku));
 
+    if (Array.isArray(modelRoutes)) {
+        modelRoutes.forEach((route) => {
+            addModel(route?.sourceModel);
+            addModel(route?.targetModel);
+        });
+    }
+
     BUILTIN_PROVIDER_KEYS.forEach((providerKey) => {
         const provider = providers[providerKey];
         if (provider && Array.isArray(provider.models)) {

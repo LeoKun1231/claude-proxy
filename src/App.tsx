@@ -190,7 +190,7 @@ export default function App() {
                                 {NAV_ITEMS.find(n => n.key === activeTab)?.label}
                             </h2>
                             <p className="text-sm text-muted-foreground mt-1">
-                                {activeTab === 'routing' && '配置模型路由规则与回退策略'}
+                                {activeTab === 'routing' && '优先按模型路由命中上游，未命中时再使用默认回退策略'}
                                 {activeTab === 'providers' && '管理后端 API 凭证与服务商设定'}
                                 {activeTab === 'logs' && '监控代理请求与响应活动'}
                                 {activeTab === 'settings' && '环境配置与系统偏好设置'}
@@ -203,8 +203,8 @@ export default function App() {
                         {activeTab === 'routing' && (
                             <div className="space-y-6">
                                 <StatusBar status={proxyStatus} loading={proxyLoading} onStart={handleStart} onStop={handleStop} onRestart={handleRestart} />
-                                <ModelMapping />
                                 <ModelRoutes />
+                                <ModelMapping />
                             </div>
                         )}
 

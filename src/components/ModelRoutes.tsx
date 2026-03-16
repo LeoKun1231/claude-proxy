@@ -8,12 +8,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from './ui/switch';
 import type { AppConfig, ModelRoute } from '../types/config';
 
-interface ProviderOption { value: string; label: string; baseUrl: string; apiKey: string; }
+interface ProviderOption {
+    value: string;
+    label: string;
+    baseUrl: string;
+    apiKey: string;
+    models: string[];
+}
+
+function uniqueModels(...groups: Array<Array<string> | undefined>) {
+    const seen = new Set<string>();
+    const result: string[] = [];
+
+    groups.forEach((group) => {
+        group?.forEach((value) => {
+            const normalized = String(value || '').trim();
+            if (!normalized || seen.has(normalized)) return;
+            seen.add(normalized);
+            result.push(normalized);
+        });
+    });
+
+    return result;
+}
 
 function buildProviderOptions(config: AppConfig): ProviderOption[] {
     const providers = config.providers || {} as AppConfig['providers'];
     return Array.isArray(providers.customProviders)
-        ? providers.customProviders.map(p => ({ value: p.id, label: p.name, baseUrl: p.baseUrl, apiKey: p.apiKey || '' }))
+        ? providers.customProviders.map(p => ({
+            value: p.id,
+            label: p.name,
+            baseUrl: p.baseUrl,
+            apiKey: p.apiKey || '',
+            models: Array.isArray(p.models) ? p.models : [],
+        }))
         : [];
 }
 
@@ -28,7 +56,15 @@ function emptyRoute(opts: ProviderOption[]): ModelRoute {
 }
 
 function normalizeRoute(route: ModelRoute): ModelRoute {
-    return { ...route, targetModel: '' };
+    return {
+        ...route,
+        sourceModel: String(route.sourceModel || '').trim(),
+        targetModel: String(route.targetModel || '').trim(),
+        providerId: String(route.providerId || '').trim(),
+        providerLabel: String(route.providerLabel || '').trim(),
+        baseUrl: String(route.baseUrl || '').trim(),
+        apiKey: String(route.apiKey || ''),
+    };
 }
 
 export default function ModelRoutes() {
@@ -120,7 +156,7 @@ export default function ModelRoutes() {
             <div className="flex items-center justify-between">
                 <div>
                     <h3 className="text-sm font-semibold">模型路由</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">将特定源模型请求重定向到目标服务商</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">优先按源模型命中路由；仅在未命中时才回退到下方默认策略</p>
                 </div>
                 <Button size="sm" variant="outline" onClick={add}>
                     <Plus className="w-3.5 h-3.5 mr-1" /> 添加路由
@@ -135,6 +171,12 @@ export default function ModelRoutes() {
             ) : (
                 <div className="space-y-3">
                     {routes.map(route => {
+                        const activeProvider = route.providerId ? providerMap[route.providerId] : undefined;
+                        const targetModelSuggestions = uniqueModels(
+                            activeProvider?.models,
+                            globalModels,
+                            route.targetModel ? [route.targetModel] : undefined
+                        );
                         const providerItems = [
                             { value: 'none', label: '—' },
                             ...providerOptions.map((provider) => ({ value: provider.value, label: provider.label }))
@@ -151,7 +193,7 @@ export default function ModelRoutes() {
                                     </Button>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                     <div className="space-y-1">
                                         <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">源模型</label>
                                         <Input
@@ -164,8 +206,8 @@ export default function ModelRoutes() {
                                         />
                                         <p className="text-[11px] text-muted-foreground">
                                             {globalModels.length > 0
-                                                ? '可直接输入自定义模型，也可从全局模型池快速选择'
-                                                : '支持自定义输入；添加全局模型后会在这里显示候选'}
+                                                ? '可直接输入自定义模型，也可从全局模型池快速选择；Claude 4.x 的 .6 / -6 写法会自动兼容'
+                                                : '支持自定义输入；添加全局模型后会在这里显示候选；Claude 4.x 的 .6 / -6 写法会自动兼容'}
                                         </p>
                                         {globalModels.length > 0 && (
                                             <div className="flex flex-wrap gap-1.5 pt-1">
@@ -188,7 +230,7 @@ export default function ModelRoutes() {
                                         )}
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">服务商</label>
+                                        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">目标服务商</label>
                                         <Select
                                             items={providerItems}
                                             value={route.providerId || 'none'}
@@ -200,6 +242,44 @@ export default function ModelRoutes() {
                                                 {providerOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">目标模型</label>
+                                        <Input
+                                            value={route.targetModel}
+                                            onChange={e => setField(route.id, 'targetModel', e.target.value)}
+                                            placeholder="留空则沿用源模型"
+                                            list={targetModelSuggestions.length ? `${route.id}-target-models` : undefined}
+                                            autoComplete="off"
+                                            className="h-8 text-sm font-mono"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">
+                                            命中此路由后优先改写为该模型；留空则保持原请求模型。
+                                        </p>
+                                        {targetModelSuggestions.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                                {targetModelSuggestions.map((model) => (
+                                                    <button
+                                                        key={model}
+                                                        type="button"
+                                                        onClick={() => setField(route.id, 'targetModel', model)}
+                                                        className={cn(
+                                                            'inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-mono transition-colors cursor-pointer',
+                                                            route.targetModel === model
+                                                                ? 'border-primary bg-primary/12 text-foreground'
+                                                                : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                                                        )}
+                                                    >
+                                                        {model}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {targetModelSuggestions.length > 0 && (
+                                            <datalist id={`${route.id}-target-models`}>
+                                                {targetModelSuggestions.map((model) => <option key={model} value={model} />)}
+                                            </datalist>
+                                        )}
                                     </div>
                                 </div>
                             </div>
