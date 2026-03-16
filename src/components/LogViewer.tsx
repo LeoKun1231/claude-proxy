@@ -1,10 +1,7 @@
-/**
- * 日志查看器组件
- * 增强版：支持过滤、暂停、统计
- */
 import { useState, useRef, useEffect, memo, useMemo, useCallback } from 'react';
-import { Button, Empty, Space, Tag, Tooltip, Segmented } from 'antd';
-import { ClearOutlined, PauseCircleOutlined, PlayCircleOutlined, DownOutlined } from '@ant-design/icons';
+import { Pause, Play, Trash2, ArrowDown } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 
 interface LogItem {
     id?: string;
@@ -19,248 +16,108 @@ interface LogViewerProps {
     onClear: () => void;
 }
 
-// 单条日志 - 使用 memo 优化渲染
-const LogEntry = memo(({ log }: { log: LogItem }) => {
-    const typeColors = {
-        info: '#52c41a',
-        warn: '#faad14',
-        error: '#ff4d4f',
-    };
-
-    const typeLabels = {
-        info: 'INFO',
-        warn: 'WARN',
-        error: 'ERROR',
-    };
-
-    return (
-        <div
-            className="log-item"
-            style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 8,
-            }}
-        >
-            <span className="log-time">
-                {new Date(log.timestamp).toLocaleTimeString()}
-            </span>
-            <Tag
-                color={typeColors[log.type]}
-                style={{
-                    fontSize: 10,
-                    lineHeight: '16px',
-                    padding: '0 4px',
-                    margin: 0,
-                    flexShrink: 0,
-                }}
-            >
-                {typeLabels[log.type]}
-            </Tag>
-            <span
-                className={`log-${log.type}`}
-                style={{
-                    flex: 1,
-                    wordBreak: 'break-all',
-                    lineHeight: 1.5,
-                }}
-            >
-                {log.message}
-            </span>
-            {log.repeatCount && log.repeatCount > 1 && (
-                <Tag
-                    color="default"
-                    style={{
-                        margin: 0,
-                        padding: '0 6px',
-                        fontSize: 10,
-                        lineHeight: '18px',
-                        background: 'rgba(255,255,255,0.08)',
-                        border: '1px solid rgba(255,255,255,0.16)',
-                    }}
-                >
-                    x{log.repeatCount}
-                </Tag>
-            )}
-        </div>
-    );
-});
-
+const LogEntry = memo(({ log }: { log: LogItem }) => (
+    <div className="flex items-start gap-3 py-1 px-3 hover:bg-muted/30 text-xs font-mono leading-relaxed">
+        <span className="text-muted-foreground/60 shrink-0 w-[72px] tabular-nums">
+            {new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}
+        </span>
+        <span className={`shrink-0 w-10 uppercase font-semibold text-[10px] tracking-wider ${
+            log.type === 'error' ? 'text-red-400' :
+            log.type === 'warn' ? 'text-yellow-400' :
+            'text-muted-foreground'
+        }`}>
+            {log.type}
+        </span>
+        <span className={`break-all flex-1 ${log.type === 'error' ? 'text-red-300' : 'text-foreground/80'}`}>
+            {log.message}
+        </span>
+        {log.repeatCount && log.repeatCount > 1 && (
+            <Badge variant="secondary" className="px-1 py-0 text-[10px] h-4 shrink-0">×{log.repeatCount}</Badge>
+        )}
+    </div>
+));
 LogEntry.displayName = 'LogEntry';
 
-function LogViewer({ logs, onClear }: LogViewerProps) {
+export default function LogViewer({ logs, onClear }: LogViewerProps) {
     const [filter, setFilter] = useState<'all' | 'info' | 'warn' | 'error'>('all');
-    const [isPaused, setIsPaused] = useState(false);
-    const [showScrollButton, setShowScrollButton] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const autoScrollRef = useRef(true);
+    const [paused, setPaused] = useState(false);
+    const [showScroll, setShowScroll] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    const autoScroll = useRef(true);
 
-    // 过滤日志
-    const filteredLogs = useMemo(() => {
-        if (filter === 'all') {
-            return logs;
-        }
-        return logs.filter(log => log.type === filter);
-    }, [filter, logs]);
+    const filtered = useMemo(() => filter === 'all' ? logs : logs.filter(l => l.type === filter), [filter, logs]);
 
-    // 统计
-    const stats = useMemo(() => {
-        return logs.reduce(
-            (acc, item) => {
-                const logCount = item.repeatCount || 1;
-                acc.total += logCount;
-                if (item.type === 'info') acc.info += logCount;
-                if (item.type === 'warn') acc.warn += logCount;
-                if (item.type === 'error') acc.error += logCount;
-                return acc;
-            },
-            { total: 0, info: 0, warn: 0, error: 0 }
-        );
-    }, [logs]);
+    const counts = useMemo(() => logs.reduce((a, l) => {
+        const c = l.repeatCount || 1;
+        a.total += c; a[l.type] += c;
+        return a;
+    }, { total: 0, info: 0, warn: 0, error: 0 }), [logs]);
 
-    // 自动滚动
     useEffect(() => {
-        if (!isPaused && autoScrollRef.current && containerRef.current) {
-            containerRef.current.scrollTop = containerRef.current.scrollHeight;
+        if (!paused && autoScroll.current && ref.current) {
+            ref.current.scrollTop = ref.current.scrollHeight;
         }
-    }, [filteredLogs.length, isPaused]);
+    }, [filtered.length, paused]);
 
-    // 监听滚动
-    const handleScroll = useCallback(() => {
-        if (!containerRef.current) return;
-        const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-        const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-        autoScrollRef.current = isAtBottom;
-        const nextShowScrollButton = !isAtBottom && filteredLogs.length > 5;
-        setShowScrollButton(prev => (prev === nextShowScrollButton ? prev : nextShowScrollButton));
-    }, [filteredLogs.length]);
+    const onScroll = useCallback(() => {
+        if (!ref.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = ref.current;
+        const atBottom = scrollHeight - scrollTop - clientHeight < 40;
+        autoScroll.current = atBottom;
+        setShowScroll(!atBottom && filtered.length > 5);
+    }, [filtered.length]);
 
-    // 滚动到底部
-    const scrollToBottom = useCallback(() => {
-        if (containerRef.current) {
-            containerRef.current.scrollTop = containerRef.current.scrollHeight;
-            autoScrollRef.current = true;
-            setShowScrollButton(false);
-        }
+    const scrollToEnd = useCallback(() => {
+        if (ref.current) { ref.current.scrollTop = ref.current.scrollHeight; autoScroll.current = true; setShowScroll(false); }
     }, []);
 
-    if (logs.length === 0) {
-        return (
-            <Empty
-                description="暂无日志"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                style={{ padding: '32px 0' }}
-            />
-        );
-    }
-
     return (
-        <div className="fade-in">
-            {/* 工具栏 */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 12,
-                flexWrap: 'wrap',
-                gap: 8,
-            }}>
-                {/* 过滤器 */}
-                <Segmented
-                    size="small"
-                    value={filter}
-                    onChange={(value) => setFilter(value as typeof filter)}
-                    options={[
-                        { label: `全部 (${stats.total})`, value: 'all' },
-                        { label: `信息 (${stats.info})`, value: 'info' },
-                        { label: `警告 (${stats.warn})`, value: 'warn' },
-                        { label: `错误 (${stats.error})`, value: 'error' },
-                    ]}
-                />
-
-                {/* 操作按钮 */}
-                <Space size="small">
-                    <Tooltip title={isPaused ? '继续滚动' : '暂停滚动'}>
-                        <Button
-                            type="text"
-                            size="small"
-                            icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
-                            onClick={() => setIsPaused(!isPaused)}
-                            style={{
-                                color: isPaused ? '#faad14' : undefined,
-                            }}
-                        />
-                    </Tooltip>
-                    <Tooltip title="清空日志">
-                        <Button
-                            type="text"
-                            size="small"
-                            icon={<ClearOutlined />}
-                            onClick={onClear}
-                            danger
-                        />
-                    </Tooltip>
-                </Space>
-            </div>
-
-            {/* 暂停提示 */}
-            {isPaused && (
-                <div style={{
-                    padding: '6px 12px',
-                    background: 'rgba(250, 173, 20, 0.1)',
-                    border: '1px solid rgba(250, 173, 20, 0.3)',
-                    borderRadius: 6,
-                    marginBottom: 8,
-                    fontSize: 12,
-                    color: '#faad14',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                }}>
-                    <PauseCircleOutlined />
-                    自动滚动已暂停
+        <div className="flex min-h-[calc(100dvh-14rem)] min-w-0 flex-col overflow-hidden rounded-lg border">
+            {/* Toolbar */}
+            <div className="flex shrink-0 items-center justify-between border-b bg-muted/30 px-3 py-2">
+                <div className="flex gap-1">
+                    {(['all', 'info', 'warn', 'error'] as const).map(f => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={`px-2.5 py-1 rounded text-[11px] font-medium uppercase tracking-wide cursor-pointer transition-colors ${
+                                filter === f ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                            {f}{' '}{f === 'all' ? counts.total : counts[f]}
+                        </button>
+                    ))}
                 </div>
-            )}
-
-            {/* 日志列表 */}
-            <div
-                ref={containerRef}
-                className="log-panel"
-                onScroll={handleScroll}
-                style={{ position: 'relative' }}
-            >
-                {filteredLogs.map((log, index) => (
-                    <LogEntry
-                        key={log.id || `${log.timestamp}_${index}`}
-                        log={log}
-                    />
-                ))}
-            </div>
-
-            {/* 滚动到底部按钮 */}
-            {showScrollButton && (
-                <div style={{
-                    position: 'relative',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    marginTop: -24,
-                    zIndex: 5,
-                }}>
-                    <Button
-                        size="small"
-                        icon={<DownOutlined />}
-                        onClick={scrollToBottom}
-                        style={{
-                            borderRadius: 16,
-                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                        }}
-                    >
-                        新日志
+                <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => setPaused(!paused)}>
+                        {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer hover:text-destructive" onClick={onClear}>
+                        <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                 </div>
-            )}
+            </div>
+
+            {/* Log body */}
+            <div ref={ref} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-y-auto bg-background">
+                {filtered.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground uppercase tracking-widest">
+                        暂无日志
+                    </div>
+                ) : (
+                    <div className="py-1">
+                        {filtered.map((log, i) => <LogEntry key={log.id || `${log.timestamp}_${i}`} log={log} />)}
+                    </div>
+                )}
+
+                {showScroll && (
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
+                        <Button size="sm" variant="secondary" onClick={scrollToEnd} className="rounded-full shadow-lg cursor-pointer">
+                            <ArrowDown className="w-3.5 h-3.5 mr-1" /> 最新
+                        </Button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
-
-export default LogViewer;

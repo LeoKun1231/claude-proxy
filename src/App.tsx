@@ -1,18 +1,11 @@
-/**
- * 主应用组件
- * 优化版：使用自定义 hooks、减少重复渲染、增强视觉效果
- */
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Layout, Card, Row, Col, Typography, Space, Tag, message, Button, Tooltip, Dropdown, ConfigProvider, theme, Skeleton } from 'antd';
+import { useState, useCallback } from 'react';
 import {
-    ApiOutlined, SettingOutlined, FileTextOutlined,
-    ExportOutlined, ImportOutlined, MoreOutlined,
-    EyeOutlined, EyeInvisibleOutlined, ThunderboltOutlined,
-    CloudServerOutlined, CopyOutlined
-} from '@ant-design/icons';
+    Terminal, Download, Upload, Eye, EyeOff,
+    Route, KeyRound, ScrollText, Settings, CircleDot,
+    Copy, MoreHorizontal
+} from 'lucide-react';
 import EnvConfig from './components/EnvConfig';
-import Settings from './components/Settings';
-
+import AppSettings from './components/Settings';
 import StatusBar from './components/StatusBar';
 import ModelMapping from './components/ModelMapping';
 import ModelRoutes from './components/ModelRoutes';
@@ -21,24 +14,23 @@ import LogViewer from './components/LogViewer';
 import FloatBall from './components/FloatBall';
 import { useProxyStatus, useLogs } from './hooks';
 
-const { Header, Content, Footer } = Layout;
-const { Title, Text } = Typography;
-const APP_FONT_FAMILY = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'WenQuanYi Micro Hei', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+import { Button } from './components/ui/button';
+import { Badge } from './components/ui/badge';
+import { Separator } from './components/ui/separator';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from './components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './components/ui/tooltip';
+import { toast } from 'sonner';
 
-// 卡片通用样式
-const cardStyle = {
-    background: 'rgba(15, 23, 42, 0.45)',
-    border: '1px solid rgba(148, 163, 184, 0.18)',
-    borderRadius: 12,
-    backdropFilter: 'blur(6px)',
-};
+type TabKey = 'routing' | 'providers' | 'logs' | 'settings';
 
-const cardHeadStyle = {
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
-};
+const NAV_ITEMS: { key: TabKey; label: string; icon: React.ElementType }[] = [
+    { key: 'routing', label: '路由设置', icon: Route },
+    { key: 'providers', label: '服务商', icon: KeyRound },
+    { key: 'logs', label: '运行日志', icon: ScrollText },
+    { key: 'settings', label: '系统设置', icon: Settings },
+];
 
-function App() {
-    // 使用自定义 hooks
+export default function App() {
     const { status: proxyStatus, loading: proxyLoading, start, stop, restart } = useProxyStatus({
         pollInterval: 5000,
         backgroundPollInterval: 30000,
@@ -46,430 +38,195 @@ function App() {
         fastPollInterval: 1000,
     });
     const { logs, clearLogs } = useLogs({ maxLogs: 200, autoScroll: false });
-    const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [activeTab, setActiveTab] = useState<TabKey>('routing');
     const isDesktopRuntime = typeof window !== 'undefined' && window.location.protocol === 'file:';
 
-    // 检查是否是悬浮球模式
     const isFloatMode = window.location.hash === '#/float';
-    if (isFloatMode) {
-        return <FloatBall />;
-    }
+    if (isFloatMode) return <FloatBall />;
 
-    // 启动代理
     const handleStart = useCallback(async () => {
         const result = await start();
         if (result.success) {
-            message.success(`代理服务器已启动 (端口: ${result.port})`);
-        } else {
-            message.error(result.error || '启动失败');
+            if (result.alreadyRunning) {
+                toast.info(`代理已在端口 ${result.port} 运行`);
+            } else {
+                toast.success(`已在端口 ${result.port} 启动`);
+            }
+            return;
         }
+
+        toast.error('启动失败: ' + result.error);
     }, [start]);
 
-    // 停止代理
     const handleStop = useCallback(async () => {
         await stop();
-        message.success('代理服务器已停止');
+        toast.info('代理已停止');
     }, [stop]);
 
-    // 重启代理
     const handleRestart = useCallback(async () => {
         const result = await restart();
-        if (result.success) {
-            message.success('代理服务器已重启');
-        } else {
-            message.error(result.error || '重启失败');
-        }
+        result.success ? toast.success('重启成功') : toast.error('重启失败: ' + result.error);
     }, [restart]);
 
-    // 导出配置
     const handleExport = useCallback(async () => {
+        if (!window.electronAPI?.exportConfig) return;
         const result = await window.electronAPI.exportConfig();
-        if (result.success) {
-            message.success('配置已导出');
-        } else if (result.error !== '已取消') {
-            message.error('导出失败: ' + result.error);
-        }
+        if (result.success) toast.success('配置已导出');
+        else if (result.error !== '已取消') toast.error('导出失败: ' + result.error);
     }, []);
 
-    // 导入配置
     const handleImport = useCallback(async () => {
+        if (!window.electronAPI?.importConfig) return;
         const result = await window.electronAPI.importConfig();
         if (result.success) {
-            message.success('配置已导入，页面将刷新');
+            toast.success('配置已导入');
             setTimeout(() => window.location.reload(), 500);
-        } else if (result.error !== '已取消') {
-            message.error('导入失败: ' + result.error);
-        }
+        } else if (result.error !== '已取消') toast.error('导入失败: ' + result.error);
     }, []);
 
-    // 悬浮球控制
-    const showFloatWindow = useCallback(() => {
-        window.electronAPI.showFloatWindow?.();
-    }, []);
-    const hideFloatWindow = useCallback(() => {
-        window.electronAPI.hideFloatWindow?.();
-    }, []);
     const handleCopyProxyUrl = useCallback(async () => {
         try {
             await navigator.clipboard.writeText(`http://127.0.0.1:${proxyStatus.port}`);
-            message.success('代理地址已复制');
-        } catch {
-            message.error('复制失败');
-        }
+            toast.success('代理地址已复制');
+        } catch { toast.error('复制失败'); }
     }, [proxyStatus.port]);
 
-    // 初始加载状态
-    useEffect(() => {
-        const timerId = window.setTimeout(() => setIsInitialLoad(false), 300);
-
-        return () => {
-            window.clearTimeout(timerId);
-        };
-    }, []);
-
-    // 更多菜单
-    const moreMenuItems = useMemo(() => {
-        const items: any[] = [
-            { key: 'export', label: '导出配置', icon: <ExportOutlined />, onClick: handleExport },
-            { key: 'import', label: '导入配置', icon: <ImportOutlined />, onClick: handleImport },
-        ];
-
-        if (isDesktopRuntime) {
-            items.push(
-                { type: 'divider' as const },
-                { key: 'showFloat', label: '显示悬浮球', icon: <EyeOutlined />, onClick: showFloatWindow },
-                { key: 'hideFloat', label: '隐藏悬浮球', icon: <EyeInvisibleOutlined />, onClick: hideFloatWindow },
-            );
-        }
-
-        return items;
-    }, [handleExport, handleImport, isDesktopRuntime, showFloatWindow, hideFloatWindow]);
-
     return (
-        <ConfigProvider
-            theme={{
-                algorithm: theme.darkAlgorithm,
-                token: {
-                    colorPrimary: '#1890ff',
-                    borderRadius: 8,
-                    colorBgContainer: '#1f1f1f',
-                    colorBgElevated: '#252525',
-                    fontFamily: APP_FONT_FAMILY,
-                }
-            }}
-        >
-            <Layout style={{
-                height: '100dvh',
-                background: 'linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%)',
-                position: 'relative',
-                overflow: 'hidden'
-            }}>
-                {/* 背景噪点纹理 */}
-                <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-                    opacity: 0.03,
-                    pointerEvents: 'none',
-                    zIndex: 0,
-                }} />
-
-                {/* 顶部标题栏 */}
-                <Header style={{
-                    background: 'rgba(0, 0, 0, 0.4)',
-                    backdropFilter: 'blur(12px)',
-                    padding: '0 24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-                    height: 64,
-                    lineHeight: 'normal',
-                    flexShrink: 0,
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 100
-                }}>
-                    <Space size="middle">
-                        <div style={{
-                            width: 42,
-                            height: 42,
-                            background: 'linear-gradient(135deg, #1890ff 0%, #0050b3 100%)',
-                            borderRadius: 12,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 4px 16px rgba(24, 144, 255, 0.35)',
-                            transition: 'transform 0.2s ease',
-                        }}>
-                            <ThunderboltOutlined style={{ fontSize: 22, color: '#fff' }} />
+        <TooltipProvider>
+            <div className="app-shell flex overflow-hidden bg-background">
+                {/* ── Sidebar ── */}
+                <aside className="w-56 flex flex-col border-r bg-sidebar shrink-0">
+                    {/* Brand */}
+                    <div className="px-5 pt-6 pb-4">
+                        <div className="flex items-center gap-2.5">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-foreground text-background">
+                                <Terminal className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <h1 className="text-sm font-semibold tracking-tight leading-none">Claude Proxy</h1>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">本地 API 网关</p>
+                            </div>
                         </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Status pill */}
+                    <div className="px-4 py-4">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
+                            <CircleDot className={`w-3.5 h-3.5 ${proxyStatus.running ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                            <span className="text-xs font-medium">
+                                {proxyStatus.running ? `已在端口 ${proxyStatus.port} 运行` : '已离线'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Navigation */}
+                    <nav className="flex-1 px-3 space-y-0.5">
+                        {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
+                            <button
+                                key={key}
+                                onClick={() => setActiveTab(key)}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                                    activeTab === key
+                                        ? 'bg-accent text-accent-foreground'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                                }`}
+                            >
+                                <Icon className="w-4 h-4" />
+                                {label}
+                                {key === 'logs' && logs.length > 0 && (
+                                    <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-5 min-w-5 justify-center">
+                                        {logs.length}
+                                    </Badge>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+
+                    {/* Bottom actions */}
+                    <div className="mt-auto border-t px-3 py-3 space-y-1">
+                        <button onClick={handleCopyProxyUrl} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 cursor-pointer transition-colors">
+                            <Copy className="w-4 h-4" />
+                            <span className="font-mono text-xs">127.0.0.1:{proxyStatus.port}</span>
+                        </button>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 cursor-pointer transition-colors">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                    更多选项
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right" align="end" className="w-44">
+                                <DropdownMenuItem onClick={handleExport} className="cursor-pointer">
+                                    <Download className="w-4 h-4 mr-2" /> 导出配置
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleImport} className="cursor-pointer">
+                                    <Upload className="w-4 h-4 mr-2" /> 导入配置
+                                </DropdownMenuItem>
+                                {isDesktopRuntime && (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => window.electronAPI?.showFloatWindow?.()} className="cursor-pointer">
+                                            <Eye className="w-4 h-4 mr-2" /> 显示悬浮窗
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => window.electronAPI?.hideFloatWindow?.()} className="cursor-pointer">
+                                            <EyeOff className="w-4 h-4 mr-2" /> 隐藏悬浮窗
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </aside>
+
+                {/* ── Main Content ── */}
+                <main className="flex-1 overflow-y-auto w-full min-w-0">
+                    <div className="w-full px-8 py-8 space-y-6">
+                        {/* Page Header */}
                         <div>
-                            <Title level={4} style={{ margin: 0, color: '#fff', lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-                                Claude Proxy
-                            </Title>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                API 代理与模型切换
-                            </Text>
+                            <h2 className="text-2xl font-semibold tracking-tight">
+                                {NAV_ITEMS.find(n => n.key === activeTab)?.label}
+                            </h2>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                {activeTab === 'routing' && '配置模型路由规则与回退策略'}
+                                {activeTab === 'providers' && '管理后端 API 凭证与服务商设定'}
+                                {activeTab === 'logs' && '监控代理请求与响应活动'}
+                                {activeTab === 'settings' && '环境配置与系统偏好设置'}
+                            </p>
                         </div>
-                    </Space>
 
-                    <Space size="middle">
-                        <Tag
-                            icon={proxyStatus.running ? <CloudServerOutlined /> : null}
-                            color={proxyStatus.running ? 'success' : 'default'}
-                            style={{
-                                padding: '6px 14px',
-                                borderRadius: 20,
-                                background: proxyStatus.running ? 'rgba(82, 196, 26, 0.12)' : 'rgba(255,255,255,0.08)',
-                                border: proxyStatus.running ? '1px solid rgba(82, 196, 26, 0.3)' : '1px solid rgba(255,255,255,0.1)',
-                                fontSize: 13,
-                                fontWeight: 500,
-                                transition: 'all 0.3s ease',
-                            }}
-                        >
-                            {proxyStatus.running ? `运行中 · 端口 ${proxyStatus.port}` : '已停止'}
-                        </Tag>
-                        {isDesktopRuntime && (
-                            <Tooltip title="悬浮球">
-                                <Button
-                                    type="text"
-                                    icon={<EyeOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
-                                    onClick={showFloatWindow}
-                                    style={{ borderRadius: 8 }}
-                                />
-                            </Tooltip>
+                        <Separator />
+
+                        {/* Tab Content */}
+                        {activeTab === 'routing' && (
+                            <div className="space-y-6">
+                                <StatusBar status={proxyStatus} loading={proxyLoading} onStart={handleStart} onStop={handleStop} onRestart={handleRestart} />
+                                <ModelMapping />
+                                <ModelRoutes />
+                            </div>
                         )}
-                        <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
-                            <Button
-                                type="text"
-                                icon={<MoreOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
-                                style={{ borderRadius: 8 }}
-                            />
-                        </Dropdown>
-                    </Space>
-                </Header>
 
-                <Content style={{
-                    padding: '20px clamp(12px, 2.2vw, 28px) 24px',
-                    minHeight: 0,
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                    overscrollBehavior: 'contain',
-                    position: 'relative',
-                    zIndex: 1
-                }}>
-                    {isInitialLoad ? (
-                        // 骨架屏
-                        <div style={{ maxWidth: 1480, margin: '0 auto' }}>
-                            <Row gutter={[20, 20]}>
-                                <Col xs={24} lg={13}>
-                                    <Space direction="vertical" style={{ width: '100%' }} size={20}>
-                                        <Card style={cardStyle}>
-                                            <Skeleton active paragraph={{ rows: 3 }} />
-                                        </Card>
-                                        <Card style={cardStyle}>
-                                            <Skeleton active paragraph={{ rows: 4 }} />
-                                        </Card>
-                                    </Space>
-                                </Col>
-                                <Col xs={24} lg={12}>
-                                    <Card style={cardStyle}>
-                                        <Skeleton active paragraph={{ rows: 8 }} />
-                                    </Card>
-                                </Col>
-                            </Row>
-                        </div>
-                    ) : (
-                        <div style={{ maxWidth: 1480, margin: '0 auto' }}>
-                            <Row gutter={[20, 20]} className="fade-in">
-                                {/* 左侧 */}
-                                <Col xs={24} lg={12}>
-                                    <Space direction="vertical" style={{ width: '100%' }} size={20}>
-                                        {/* 服务状态卡片 */}
-                                        <Card
-                                            title={
-                                                <Space>
-                                                    <ApiOutlined style={{ color: '#1890ff' }} />
-                                                    <span>服务状态</span>
-                                                </Space>
-                                            }
-                                            size="small"
-                                            style={cardStyle}
-                                            headStyle={cardHeadStyle}
-                                        >
-                                            <StatusBar
-                                                status={proxyStatus}
-                                                loading={proxyLoading}
-                                                onStart={handleStart}
-                                                onStop={handleStop}
-                                                onRestart={handleRestart}
-                                            />
-                                        </Card>
+                        {activeTab === 'providers' && (
+                            <div className="space-y-6">
+                                <ProviderConfig />
+                            </div>
+                        )}
 
-                                        {/* 模型映射卡片 */}
-                                        <Card
-                                            title={
-                                                <Space>
-                                                    <SettingOutlined style={{ color: '#52c41a' }} />
-                                                    <span>模型路由 / 默认回退</span>
-                                                </Space>
-                                            }
-                                            size="small"
-                                            style={cardStyle}
-                                            headStyle={cardHeadStyle}
-                                        >
-                                            <ModelMapping />
-                                        </Card>
+                        {activeTab === 'logs' && (
+                            <LogViewer logs={logs} onClear={clearLogs} />
+                        )}
 
-                                        {/* 环境变量配置 */}
-                                        <EnvConfig />
-
-                                        {/* 系统设置 */}
-                                        <Settings />
-
-                                        {/* 日志面板 */}
-                                        <Card
-                                            title={
-                                                <Space>
-                                                    <FileTextOutlined style={{ color: '#faad14' }} />
-                                                    <span>请求日志</span>
-                                                    {logs.length > 0 && (
-                                                        <Tag style={{
-                                                            marginLeft: 8,
-                                                            fontSize: 11,
-                                                            padding: '0 6px',
-                                                            borderRadius: 10,
-                                                        }}>
-                                                            {logs.length}
-                                                        </Tag>
-                                                    )}
-                                                </Space>
-                                            }
-                                            size="small"
-                                            style={cardStyle}
-                                            headStyle={cardHeadStyle}
-                                        >
-                                            <LogViewer logs={logs} onClear={clearLogs} />
-                                        </Card>
-                                    </Space>
-                                </Col>
-
-                                {/* 右侧 */}
-                                <Col xs={24} lg={11}>
-                                    <Space direction="vertical" style={{ width: '100%' }} size={20}>
-                                        <Card
-                                            title={
-                                                <Space>
-                                                    <SettingOutlined style={{ color: '#722ed1' }} />
-                                                    <span>模型路由配置</span>
-                                                </Space>
-                                            }
-                                            size="small"
-                                            style={cardStyle}
-                                            headStyle={cardHeadStyle}
-                                        >
-                                            <ModelRoutes />
-                                        </Card>
-
-                                        <Card
-                                            title={
-                                                <Space>
-                                                    <SettingOutlined style={{ color: '#13c2c2' }} />
-                                                    <span>自定义 Provider 配置</span>
-                                                </Space>
-                                            }
-                                            size="small"
-                                            style={cardStyle}
-                                            headStyle={cardHeadStyle}
-                                            bodyStyle={{ maxHeight: 'calc(100dvh - 460px)', overflowY: 'auto' }}
-                                        >
-                                            <ProviderConfig />
-                                        </Card>
-
-                                        <Card
-                                            title={
-                                                <Space>
-                                                    <ApiOutlined style={{ color: '#22c55e' }} />
-                                                    <span>快捷操作</span>
-                                                </Space>
-                                            }
-                                            size="small"
-                                            style={cardStyle}
-                                            headStyle={cardHeadStyle}
-                                        >
-                                            <Space direction="vertical" style={{ width: '100%' }} size={14}>
-                                                <div style={{ display: 'flex', gap: 10 }}>
-                                                    <Button
-                                                        icon={<ExportOutlined />}
-                                                        onClick={handleExport}
-                                                        style={{ flex: 1 }}
-                                                    >
-                                                        导出配置
-                                                    </Button>
-                                                    <Button
-                                                        type="primary"
-                                                        icon={<ImportOutlined />}
-                                                        onClick={handleImport}
-                                                        style={{ flex: 1 }}
-                                                    >
-                                                        导入配置
-                                                    </Button>
-                                                </div>
-
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    gap: 10,
-                                                }}>
-                                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                                        当前代理入口
-                                                    </Text>
-                                                    <Button
-                                                        type="text"
-                                                        size="small"
-                                                        icon={<CopyOutlined />}
-                                                        onClick={handleCopyProxyUrl}
-                                                    />
-                                                </div>
-
-                                                <Text
-                                                    code
-                                                    style={{
-                                                        display: 'block',
-                                                        background: 'rgba(0,0,0,0.35)',
-                                                        border: '1px solid rgba(255,255,255,0.1)',
-                                                        borderRadius: 8,
-                                                        padding: '8px 10px',
-                                                        fontSize: 12,
-                                                    }}
-                                                >
-                                                    {`http://127.0.0.1:${proxyStatus.port}`}
-                                                </Text>
-                                            </Space>
-                                        </Card>
-                                    </Space>
-                                </Col>
-                            </Row>
-                        </div>
-                    )}
-                </Content>
-
-                <Footer style={{
-                    textAlign: 'center',
-                    background: 'transparent',
-                    padding: '16px 24px',
-                    color: 'rgba(255,255,255,0.2)',
-                    fontSize: 12,
-                    position: 'relative',
-                    zIndex: 1,
-                }}>
-                    Claude Proxy v1.0.0 · Web + React + Ant Design
-                </Footer>
-            </Layout>
-        </ConfigProvider>
+                        {activeTab === 'settings' && (
+                            <div className="space-y-6">
+                                <EnvConfig />
+                                <AppSettings />
+                            </div>
+                        )}
+                    </div>
+                </main>
+            </div>
+        </TooltipProvider>
     );
 }
-
-export default App;

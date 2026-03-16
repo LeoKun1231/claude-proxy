@@ -19,9 +19,11 @@ const {
 const WEB_PORT = Number(process.env.WEB_PORT || 5056);
 const PROXY_PORT = Number(process.env.PROXY_PORT || 5055);
 const AUTO_START_PROXY = String(process.env.AUTO_START_PROXY || '').toLowerCase() === 'true';
+const MAX_PROXY_LOGS = 500;
 
 const app = express();
 const events = new EventEmitter();
+const proxyLogs = [];
 
 let appConfig = readConfig();
 setConfigProvider(() => appConfig);
@@ -38,6 +40,10 @@ function persistConfig(nextConfig) {
 }
 
 function sendProxyLog(log) {
+    proxyLogs.push(log);
+    if (proxyLogs.length > MAX_PROXY_LOGS) {
+        proxyLogs.splice(0, proxyLogs.length - MAX_PROXY_LOGS);
+    }
     emitEvent('proxy-log', log);
 }
 
@@ -53,19 +59,6 @@ function addTarget(targets, target) {
 function getAvailableTargets(config) {
     const targets = ['pass'];
     const providers = config.providers || {};
-    const modelRoutes = Array.isArray(config.modelRoutes) ? config.modelRoutes : [];
-
-    modelRoutes.forEach((route) => {
-        if (!route || route.enabled === false) {
-            return;
-        }
-
-        if (!route.providerId || !route.targetModel) {
-            return;
-        }
-
-        addTarget(targets, `${route.providerId}:${route.targetModel}`);
-    });
 
     addTarget(targets, config.mapping?.main);
     addTarget(targets, config.mapping?.haiku);
@@ -222,6 +215,15 @@ app.post('/api/proxy/restart', async (_req, res) => {
 
 app.get('/api/proxy/status', (_req, res) => {
     res.json(getProxyStatus());
+});
+
+app.get('/api/logs', (_req, res) => {
+    res.json(proxyLogs);
+});
+
+app.post('/api/logs/clear', (_req, res) => {
+    proxyLogs.length = 0;
+    res.json({ success: true });
 });
 
 app.post('/api/export', (_req, res) => {

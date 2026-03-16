@@ -2,8 +2,7 @@
  * 悬浮球组件 - 极简纯球版
  */
 import { useState, useEffect, useCallback, memo, useRef } from 'react';
-import { ConfigProvider, theme } from 'antd';
-import { RocketOutlined } from '@ant-design/icons';
+import { Rocket } from 'lucide-react';
 import './FloatBall.css';
 
 // Provider 名称映射
@@ -158,15 +157,7 @@ function FloatBall() {
     };
 
     return (
-        <ConfigProvider
-            theme={{
-                algorithm: theme.darkAlgorithm,
-                token: {
-                    colorPrimary: '#1890ff',
-                    fontFamily: APP_FONT_FAMILY,
-                }
-            }}
-        >
+        <div className="float-ball-stage">
             <div
                 className={`float-ball ${proxyStatus.running ? 'running' : 'stopped'}`}
                 onMouseDown={handleMouseDown}
@@ -174,9 +165,9 @@ function FloatBall() {
                 onContextMenu={showMenu}
                 onDoubleClick={handleOpenMain}
             >
-                <RocketOutlined className="float-ball-icon" />
+                <Rocket className="float-ball-icon w-6 h-6" />
             </div>
-        </ConfigProvider>
+        </div>
     );
 }
 

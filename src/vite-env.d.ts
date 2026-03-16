@@ -21,10 +21,10 @@ interface ElectronAPI {
     getAvailableTargets: () => Promise<string[]>;
     checkSystemEnv: () => Promise<string | null>;
     setSystemEnv: (url: string | null) => Promise<boolean>;
-    startProxy: () => Promise<{ success: boolean; port: number; error?: string }>;
+    startProxy: () => Promise<{ success: boolean; port: number; error?: string; alreadyRunning?: boolean }>;
     stopProxy: () => Promise<void>;
     getProxyStatus: () => Promise<{ running: boolean; port: number }>;
-    restartProxy: () => Promise<{ success: boolean; port: number; error?: string }>;
+    restartProxy: () => Promise<{ success: boolean; port: number; error?: string; alreadyRunning?: boolean }>;
     showFloatWindow: () => Promise<void>;
     hideFloatWindow: () => Promise<void>;
     showMainWindow: () => Promise<void>;

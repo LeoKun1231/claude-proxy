@@ -1,281 +1,218 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Empty, Form, Input, Popconfirm, Select, Space, Switch, Tag, Typography, message } from 'antd';
-import { DeleteOutlined, PlusOutlined, BranchesOutlined } from '@ant-design/icons';
+import { Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Switch } from './ui/switch';
 import type { AppConfig, ModelRoute } from '../types/config';
 
-const { Text } = Typography;
-
-interface ProviderOption {
-    value: string;
-    label: string;
-    baseUrl: string;
-    apiKey: string;
-}
-
-function buildModelOptions(globalModels: string[], currentModel = '') {
-    const values = [...globalModels];
-
-    if (currentModel && !values.includes(currentModel)) {
-        values.unshift(currentModel);
-    }
-
-    return values.map((model) => ({
-        label: model,
-        value: model,
-    }));
-}
+interface ProviderOption { value: string; label: string; baseUrl: string; apiKey: string; }
 
 function buildProviderOptions(config: AppConfig): ProviderOption[] {
     const providers = config.providers || {} as AppConfig['providers'];
-    const customOptions = Array.isArray(providers.customProviders)
-        ? providers.customProviders.map((provider) => ({
-            value: provider.id,
-            label: provider.name,
-            baseUrl: provider.baseUrl,
-            apiKey: provider.apiKey || '',
-        }))
+    return Array.isArray(providers.customProviders)
+        ? providers.customProviders.map(p => ({ value: p.id, label: p.name, baseUrl: p.baseUrl, apiKey: p.apiKey || '' }))
         : [];
-
-    return customOptions;
 }
 
-function createRouteId() {
-    return `route_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createEmptyRoute(providerOptions: ProviderOption[]): ModelRoute {
-    const defaultProvider = providerOptions[0];
+function emptyRoute(opts: ProviderOption[]): ModelRoute {
+    const d = opts[0];
     return {
-        id: createRouteId(),
-        enabled: true,
-        sourceModel: '',
-        targetModel: '',
-        providerId: defaultProvider?.value || '',
-        providerLabel: defaultProvider?.label || '',
-        baseUrl: defaultProvider?.baseUrl || '',
-        apiKey: defaultProvider?.apiKey || '',
+        id: `route_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        enabled: true, sourceModel: '', targetModel: '',
+        providerId: d?.value || '', providerLabel: d?.label || '',
+        baseUrl: d?.baseUrl || '', apiKey: d?.apiKey || '',
     };
 }
 
-function ModelRoutes() {
+function normalizeRoute(route: ModelRoute): ModelRoute {
+    return { ...route, targetModel: '' };
+}
+
+export default function ModelRoutes() {
     const [routes, setRoutes] = useState<ModelRoute[]>([]);
     const [providerOptions, setProviderOptions] = useState<ProviderOption[]>([]);
     const [globalModels, setGlobalModels] = useState<string[]>([]);
-    const saveTimerRef = useRef<number | null>(null);
+    const saveRef = useRef<number | null>(null);
+    const sourceModelListId = useRef(`route-source-models-${Math.random().toString(36).slice(2, 8)}`);
 
     const loadData = useCallback(async () => {
-        try {
-            const allConfig = await window.electronAPI.getAllConfig();
-            setRoutes(Array.isArray(allConfig.modelRoutes) ? allConfig.modelRoutes : []);
-            setProviderOptions(buildProviderOptions(allConfig));
-            setGlobalModels(Array.isArray(allConfig.globalModels) ? allConfig.globalModels : []);
-        } catch (error) {
-            console.error('加载模型路由失败:', error);
-        }
+        if (!window.electronAPI) return;
+        const cfg = await window.electronAPI.getAllConfig();
+        setRoutes(Array.isArray(cfg.modelRoutes) ? cfg.modelRoutes.map(normalizeRoute) : []);
+        setProviderOptions(buildProviderOptions(cfg));
+        setGlobalModels(Array.isArray(cfg.globalModels) ? cfg.globalModels : []);
     }, []);
 
-    useEffect(() => {
-        loadData();
+    useEffect(() => { loadData(); }, [loadData]);
 
-        const handleUpdate = () => {
-            loadData();
+    useEffect(() => {
+        if (!window.electronAPI?.onConfigUpdated || !window.electronAPI?.onConfigImported) return;
+
+        const handleConfigUpdated = ({ key }: { key: string }) => {
+            if (
+                key === 'all' ||
+                key === 'globalModels' ||
+                key === 'modelRoutes' ||
+                key === 'providers.customProviders'
+            ) {
+                void loadData();
+            }
         };
 
-        window.electronAPI.onConfigUpdated?.(handleUpdate);
-        window.electronAPI.onConfigImported?.(handleUpdate);
-        window.addEventListener('focus', handleUpdate);
+        const handleConfigImported = () => {
+            void loadData();
+        };
+
+        window.electronAPI.onConfigUpdated(handleConfigUpdated);
+        window.electronAPI.onConfigImported(handleConfigImported);
 
         return () => {
-            window.electronAPI.removeConfigUpdatedListener?.(handleUpdate);
-            window.electronAPI.removeConfigImportedListener?.(handleUpdate);
-            window.removeEventListener('focus', handleUpdate);
-            if (saveTimerRef.current) {
-                window.clearTimeout(saveTimerRef.current);
-            }
+            window.electronAPI.removeConfigUpdatedListener?.(handleConfigUpdated);
+            window.electronAPI.removeConfigImportedListener?.(handleConfigImported);
         };
     }, [loadData]);
 
-    const queueSaveRoutes = useCallback((nextRoutes: ModelRoute[]) => {
-        if (saveTimerRef.current) {
-            window.clearTimeout(saveTimerRef.current);
-        }
-
-        saveTimerRef.current = window.setTimeout(async () => {
-            try {
-                await window.electronAPI.setConfig('modelRoutes', nextRoutes);
-            } catch (error: any) {
-                message.error('模型路由保存失败: ' + (error?.message || '未知错误'));
-            }
+    const save = useCallback((next: ModelRoute[]) => {
+        if (saveRef.current) clearTimeout(saveRef.current);
+        saveRef.current = window.setTimeout(async () => {
+            try { await window.electronAPI.setConfig('modelRoutes', next.map(normalizeRoute)); }
+            catch (e: any) { toast.error(e?.message || '保存失败'); }
         }, 400);
     }, []);
 
-    const providerMap = useMemo(() => {
-        return providerOptions.reduce<Record<string, ProviderOption>>((result, option) => {
-            result[option.value] = option;
-            return result;
-        }, {});
-    }, [providerOptions]);
+    const providerMap = useMemo(() =>
+        Object.fromEntries(providerOptions.map(p => [p.value, p])), [providerOptions]);
 
-    const applyRouteUpdate = useCallback((updater: (current: ModelRoute[]) => ModelRoute[]) => {
-        setRoutes((current) => {
-            const nextRoutes = updater(current);
-            queueSaveRoutes(nextRoutes);
-            return nextRoutes;
+    const update = useCallback((fn: (c: ModelRoute[]) => ModelRoute[]) => {
+        setRoutes(c => {
+            const next = fn(c).map(normalizeRoute);
+            save(next);
+            return next;
         });
-    }, [queueSaveRoutes]);
+    }, [save]);
 
-    const updateRouteField = useCallback((routeId: string, field: keyof ModelRoute, value: string | boolean) => {
-        applyRouteUpdate((current) => current.map((route) => {
-            if (route.id !== routeId) {
-                return route;
-            }
-
+    const setField = useCallback((id: string, field: keyof ModelRoute, val: string | boolean) => {
+        update(c => c.map(r => {
+            if (r.id !== id) return r;
             if (field === 'providerId') {
-                const nextProvider = providerMap[String(value)] || null;
-                return {
-                    ...route,
-                    providerId: String(value),
-                    providerLabel: nextProvider?.label || '',
-                    baseUrl: nextProvider?.baseUrl || '',
-                    apiKey: nextProvider?.apiKey || '',
-                };
+                const p = providerMap[String(val)];
+                return { ...r, providerId: String(val), providerLabel: p?.label || '', baseUrl: p?.baseUrl || '', apiKey: p?.apiKey || '' };
             }
-
-            return {
-                ...route,
-                [field]: value,
-            };
+            return { ...r, [field]: val };
         }));
-    }, [applyRouteUpdate, providerMap]);
+    }, [update, providerMap]);
 
-    const addRoute = useCallback(() => {
-        if (providerOptions.length === 0) {
-            message.warning('请先添加自定义 Provider，再创建模型路由');
-            return;
-        }
-        applyRouteUpdate((current) => [...current, createEmptyRoute(providerOptions)]);
-    }, [applyRouteUpdate, providerOptions]);
+    const add = useCallback(() => {
+        if (!providerOptions.length) return toast.warning('请先添加一个服务商');
+        update(c => [...c, emptyRoute(providerOptions)]);
+    }, [update, providerOptions]);
 
-    const deleteRoute = useCallback((routeId: string) => {
-        applyRouteUpdate((current) => current.filter((route) => route.id !== routeId));
-        message.success('模型路由已删除');
-    }, [applyRouteUpdate]);
+    const remove = useCallback((id: string) => {
+        update(c => c.filter(r => r.id !== id));
+        toast.success('路由已移除');
+    }, [update]);
 
     return (
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                <Space size="small">
-                    <Tag color="processing">{routes.length} 条路由</Tag>
-                    <Tag color="success">{routes.filter((route) => route.enabled).length} 条启用</Tag>
-                </Space>
-                <Button icon={<PlusOutlined />} onClick={addRoute}>
-                    添加模型路由
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-sm font-semibold">模型路由</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">将特定源模型请求重定向到目标服务商</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={add}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> 添加路由
                 </Button>
             </div>
 
             {routes.length === 0 ? (
-                <Card size="small" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description="还没有配置模型路由，未命中时会继续使用默认回退映射"
-                    />
-                </Card>
+                <div className="border border-dashed rounded-lg py-10 flex flex-col items-center text-muted-foreground text-sm">
+                    <p>尚未配置路由</p>
+                    <Button size="sm" variant="link" onClick={add} className="mt-1 cursor-pointer">创建第一条路由</Button>
+                </div>
             ) : (
-                routes.map((route) => {
-                    const routeModelOptions = buildModelOptions(globalModels, route.targetModel);
+                <div className="space-y-3">
+                    {routes.map(route => {
+                        const providerItems = [
+                            { value: 'none', label: '—' },
+                            ...providerOptions.map((provider) => ({ value: provider.value, label: provider.label }))
+                        ];
+                        return (
+                            <div key={route.id} className="border rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <Switch checked={route.enabled} onCheckedChange={c => setField(route.id, 'enabled', c)} />
+                                        <span className="text-xs font-medium text-muted-foreground">{route.enabled ? '已启用' : '已禁用'}</span>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer" onClick={() => remove(route.id)}>
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                </div>
 
-                    return (
-                        <Card
-                            key={route.id}
-                            size="small"
-                            title={(
-                                <Space wrap>
-                                    <BranchesOutlined />
-                                    <Text strong>{route.sourceModel || '未命名源模型'}</Text>
-                                    <Text type="secondary">→</Text>
-                                    <Text>{route.targetModel || '未设置目标模型'}</Text>
-                                    {route.enabled ? <Tag color="success">启用</Tag> : <Tag>停用</Tag>}
-                                </Space>
-                            )}
-                            extra={(
-                                <Popconfirm
-                                    title="删除这条模型路由？"
-                                    onConfirm={() => deleteRoute(route.id)}
-                                >
-                                    <Button type="text" danger icon={<DeleteOutlined />} size="small" />
-                                </Popconfirm>
-                            )}
-                            style={{ background: 'rgba(255,255,255,0.02)' }}
-                        >
-                            <Form layout="vertical" size="small">
-                                <Form.Item label="启用">
-                                    <Switch
-                                        checked={route.enabled}
-                                        onChange={(checked) => updateRouteField(route.id, 'enabled', checked)}
-                                    />
-                                </Form.Item>
-
-                                <Form.Item label="源模型">
-                                    <Input
-                                        value={route.sourceModel}
-                                        onChange={(event) => updateRouteField(route.id, 'sourceModel', event.target.value)}
-                                        placeholder="例如 claude-sonnet-4-6"
-                                    />
-                                </Form.Item>
-
-                                <Form.Item label="目标 Provider">
-                                    <Select
-                                        value={route.providerId || undefined}
-                                        onChange={(value) => updateRouteField(route.id, 'providerId', value)}
-                                        options={providerOptions}
-                                        placeholder="选择目标 Provider"
-                                        showSearch
-                                        optionFilterProp="label"
-                                        disabled={providerOptions.length === 0}
-                                    />
-                                </Form.Item>
-
-                                <Form.Item label="目标模型">
-                                    <Select
-                                        value={route.targetModel || undefined}
-                                        onChange={(value) => updateRouteField(route.id, 'targetModel', value)}
-                                        options={routeModelOptions}
-                                        placeholder="选择全局目标模型"
-                                        showSearch
-                                        optionFilterProp="label"
-                                        disabled={routeModelOptions.length === 0}
-                                    />
-                                </Form.Item>
-
-                                <Form.Item label="Base URL">
-                                    <Input
-                                        value={route.baseUrl}
-                                        onChange={(event) => updateRouteField(route.id, 'baseUrl', event.target.value)}
-                                        placeholder="https://api.example.com"
-                                    />
-                                </Form.Item>
-
-                                <Form.Item label="API Key">
-                                    <Input.Password
-                                        value={route.apiKey}
-                                        onChange={(event) => updateRouteField(route.id, 'apiKey', event.target.value)}
-                                        placeholder="输入该模型路由专用密钥"
-                                    />
-                                </Form.Item>
-
-                                <Form.Item>
-                                    <Space wrap size={[8, 8]}>
-                                        <Tag>{route.providerLabel || providerMap[route.providerId]?.label || '未命名 Provider'}</Tag>
-                                        <Text type="secondary">保存到 `DATA_DIR/config.json`，容器重建后可从挂载卷恢复</Text>
-                                    </Space>
-                                </Form.Item>
-                            </Form>
-                        </Card>
-                    );
-                })
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">源模型</label>
+                                        <Input
+                                            value={route.sourceModel}
+                                            onChange={e => setField(route.id, 'sourceModel', e.target.value)}
+                                            placeholder="claude-sonnet-4-*"
+                                            list={globalModels.length ? sourceModelListId.current : undefined}
+                                            autoComplete="off"
+                                            className="h-8 text-sm font-mono"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">
+                                            {globalModels.length > 0
+                                                ? '可直接输入自定义模型，也可从全局模型池快速选择'
+                                                : '支持自定义输入；添加全局模型后会在这里显示候选'}
+                                        </p>
+                                        {globalModels.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                                {globalModels.map((model) => (
+                                                    <button
+                                                        key={model}
+                                                        type="button"
+                                                        onClick={() => setField(route.id, 'sourceModel', model)}
+                                                        className={cn(
+                                                            'inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-mono transition-colors cursor-pointer',
+                                                            route.sourceModel === model
+                                                                ? 'border-primary bg-primary/12 text-foreground'
+                                                                : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                                                        )}
+                                                    >
+                                                        {model}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">服务商</label>
+                                        <Select
+                                            items={providerItems}
+                                            value={route.providerId || 'none'}
+                                            onValueChange={v => setField(route.id, 'providerId', v === 'none' ? '' : v)}
+                                        >
+                                            <SelectTrigger className="h-8 w-full text-sm"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">—</SelectItem>
+                                                {providerOptions.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             )}
-        </Space>
+
+            {globalModels.length > 0 && (
+                <datalist id={sourceModelListId.current}>
+                    {globalModels.map((model) => <option key={model} value={model} />)}
+                </datalist>
+            )}
+        </div>
     );
 }
-
-export default ModelRoutes;

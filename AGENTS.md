@@ -17,6 +17,16 @@
 - `npm run package`: Build and package Windows desktop app via `electron-packager`.
 - Optional compile commands in `README.md` can be used to build Electron files directly with `tsc`.
 
+## Browser Tool Selection
+- Default to `Playwright` when the task should become a repeatable test or scripted flow in the repo, especially for deterministic UI verification and regression checks.
+- Use `chrome-devtools-mcp` when the task needs Chrome DevTools capabilities such as inspecting network requests, console errors, performance traces, screenshots tied to a real Chrome tab, or debugging an already running Chrome instance.
+- Use `agent-browser` for fast one-off browser actions from the terminal, such as opening pages, clicking through flows, filling forms, taking ad hoc screenshots, or scraping page content without building a full test.
+- Prefer `Playwright` over the other two when the task may need to be checked into the codebase as a maintained automation.
+- Prefer `chrome-devtools-mcp` over the other two when network, console, performance, or DevTools-level debugging is the main purpose.
+- Prefer `agent-browser` over the other two when speed and low setup matter more than maintainable test code.
+- Do not have multiple browser tools control the same browser instance, user data directory, or tab at the same time.
+- In this repo, use the isolated entrypoints from `package.json` and `docs/browser-tooling.md` so each tool keeps its own profile and does not conflict with the others.
+
 ## Coding Style & Naming Conventions
 - Stack: TypeScript, React function components, Electron APIs.
 - Use 4-space indentation and keep style consistent with surrounding code in each file.

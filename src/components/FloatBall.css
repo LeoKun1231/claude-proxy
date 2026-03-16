@@ -1,18 +1,13 @@
 /* 悬浮球组件样式 - 极简深色玻璃球 */
 
-body {
-    background: transparent !important;
-    /* 移除 overflow: hidden，不仅影响悬浮球，还导致主窗口无法滚动 */
-}
-
-#root {
+.float-ball-stage {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    /* 防止悬浮球窗口出现滚动条 */
     display: flex;
     justify-content: center;
     align-items: center;
+    background: transparent;
 }
 
 .float-ball {

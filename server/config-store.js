@@ -170,7 +170,6 @@ function collectGlobalModels(globalModels, modelRoutes, providers, mapping) {
         collected.push(normalized);
     };
 
-    modelRoutes.forEach((route) => addModel(route?.targetModel));
     addModel(extractModelFromMappingTarget(mapping?.main));
     addModel(extractModelFromMappingTarget(mapping?.haiku));
 

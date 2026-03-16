@@ -47,6 +47,8 @@ export function useProxyStatus(options: UseProxyStatusOptions = {}) {
     }, [status]);
 
     useEffect(() => {
+        isMountedRef.current = true;
+
         return () => {
             isMountedRef.current = false;
         };

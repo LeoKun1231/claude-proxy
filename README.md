@@ -28,6 +28,27 @@ npm install
 npm run dev
 ```
 
+### 浏览器工具隔离用法
+
+仓库内已经预留三套互不共享的浏览器入口，避免 `Playwright`、`chrome-devtools-mcp`、`agent-browser` 抢同一个实例：
+
+```bash
+# 检查本机浏览器工具状态
+npm run browser:doctor
+
+# agent-browser: 独立 profile
+npm run browser:agent:app
+
+# Playwright: 独立 profile
+npm run browser:playwright:app
+
+# chrome-devtools-mcp: 先拉起独立 Chrome，再让 MCP 连接到 9223
+npm run browser:chrome-mcp:app
+npm run browser:chrome-mcp:server
+```
+
+详细约定见 `docs/browser-tooling.md`。
+
 ### 构建打包
 
 ```bash

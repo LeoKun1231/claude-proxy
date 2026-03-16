@@ -210,7 +210,7 @@ function resolveRequestProviderConfig(appConfig, requestedModel) {
   if (matchedRoute) {
     const providerConfig = buildResolvedProviderConfig({
       providerId: matchedRoute.providerId,
-      modelName: matchedRoute.targetModel || requestedModel,
+      modelName: requestedModel,
       providers,
       overrideBaseUrl: matchedRoute.baseUrl,
       overrideApiKey: matchedRoute.apiKey,
@@ -1477,7 +1477,7 @@ function handleProxyRequest(req, res, logCallback) {
 function startProxyServer(port, logCallback) {
   return new Promise((resolve) => {
     if (server) {
-      resolve({ success: false, error: "服务器已在运行", port: currentPort });
+      resolve({ success: true, alreadyRunning: true, port: currentPort });
       return;
     }
 

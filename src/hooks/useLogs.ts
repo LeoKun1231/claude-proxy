@@ -24,8 +24,33 @@ const defaultOptions: UseLogsOptions = {
     autoScroll: true,
 };
 
+const API_BASE = '/api';
+
 let logIdCounter = 0;
 const REPEAT_MERGE_WINDOW_MS = 5000;
+
+function mergeLogCollections(history: LogItem[], current: LogItem[], maxLogs: number) {
+    const seen = new Set<string>();
+    const merged: LogItem[] = [];
+
+    const pushLog = (log: LogItem) => {
+        const key = `${log.timestamp}|${log.type}|${log.message}`;
+        if (seen.has(key)) {
+            return;
+        }
+        seen.add(key);
+        merged.push(log);
+    };
+
+    history.forEach(pushLog);
+    current.forEach(pushLog);
+
+    if (merged.length > maxLogs) {
+        return merged.slice(-maxLogs);
+    }
+
+    return merged;
+}
 
 // 合并连续重复日志，降低日志噪音
 function mergeRepeatLog(logList: LogItem[], incomingLog: LogItem): LogItem[] {
@@ -59,6 +84,7 @@ function mergeRepeatLog(logList: LogItem[], incomingLog: LogItem): LogItem[] {
 export function useLogs(options: UseLogsOptions = {}) {
     const maxLogs = options.maxLogs ?? defaultOptions.maxLogs!;
     const autoScroll = options.autoScroll ?? defaultOptions.autoScroll!;
+    const isWebRuntime = typeof window !== 'undefined' && window.location.protocol !== 'file:';
 
     const [logs, setLogs] = useState<LogItem[]>([]);
     const [isPaused, setIsPaused] = useState(false);
@@ -94,7 +120,16 @@ export function useLogs(options: UseLogsOptions = {}) {
     const clearLogs = useCallback(() => {
         setLogs([]);
         pendingLogsRef.current = [];
-    }, []);
+
+        if (isWebRuntime) {
+            void fetch(`${API_BASE}/logs/clear`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            }).catch(() => {
+                // 忽略清理失败，避免打断 UI 操作
+            });
+        }
+    }, [isWebRuntime]);
 
     // 暂停/恢复
     const togglePause = useCallback(() => {
@@ -136,16 +171,64 @@ export function useLogs(options: UseLogsOptions = {}) {
 
     // 监听日志事件
     useEffect(() => {
+        let cancelled = false;
+
         const handleLog = (data: any) => {
             addLog(data as { message: string; type: 'info' | 'warn' | 'error'; timestamp: string });
         };
 
+        if (isWebRuntime) {
+            const eventSource = new EventSource(`${API_BASE}/events`);
+
+            eventSource.addEventListener('proxy-log', (event) => {
+                const payload = JSON.parse((event as MessageEvent).data) as {
+                    message: string;
+                    type: 'info' | 'warn' | 'error';
+                    timestamp: string;
+                };
+                handleLog(payload);
+            });
+
+            void fetch(`${API_BASE}/logs`)
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`请求失败: ${response.status}`);
+                    }
+                    return response.json() as Promise<Array<{ message: string; type: 'info' | 'warn' | 'error'; timestamp: string }>>;
+                })
+                .then((items) => {
+                    if (cancelled || !Array.isArray(items)) {
+                        return;
+                    }
+
+                    setLogs((currentLogs) => {
+                        let historyLogs: LogItem[] = [];
+                        for (const item of items.slice(-maxLogs)) {
+                            historyLogs = mergeRepeatLog(historyLogs, {
+                                id: `log_${++logIdCounter}_${Date.now()}`,
+                                ...item,
+                            });
+                        }
+                        return mergeLogCollections(historyLogs, currentLogs, maxLogs);
+                    });
+                })
+                .catch(() => {
+                    // 保持实时日志可用，历史日志加载失败时不阻断页面
+                });
+
+            return () => {
+                cancelled = true;
+                eventSource.close();
+            };
+        }
+
         window.electronAPI.onProxyLog(handleLog);
 
         return () => {
+            cancelled = true;
             window.electronAPI.removeProxyLogListener(handleLog);
         };
-    }, [addLog]);
+    }, [addLog, isWebRuntime, maxLogs]);
 
     // 自动滚动
     useEffect(() => {

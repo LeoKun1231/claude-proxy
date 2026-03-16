@@ -1,191 +1,111 @@
-/**
- * Provider 配置组件
- * 仅保留自定义 Provider 配置
- */
 import { useState, useEffect, useRef } from 'react';
-import { Form, Input, Switch, Button, Space, Tag, message, Divider, Card, Popconfirm, Typography, Empty } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Switch } from './ui/switch';
 
-interface ProviderConfigData {
+interface CustomProvider {
+    id: string;
+    name: string;
     enabled: boolean;
     apiKey: string;
     models: string[];
-    baseUrl?: string;
-    binPath?: string;
-    port?: number;
-    configPath?: string;
-}
-
-interface CustomProviderData extends ProviderConfigData {
-    id: string;
-    name: string;
     baseUrl: string;
 }
 
-const { Text } = Typography;
+export default function ProviderConfig() {
+    const [providers, setProviders] = useState<CustomProvider[]>([]);
+    const timerRef = useRef<number | null>(null);
 
-function ProviderConfig() {
-    const [customProviders, setCustomProviders] = useState<CustomProviderData[]>([]);
-    const customSaveTimerRef = useRef<number | null>(null);
-
-    // 加载配置
     useEffect(() => {
-        const loadConfigs = async () => {
-            try {
-                const allConfig = await window.electronAPI.getAllConfig();
-                setCustomProviders(allConfig.providers?.customProviders || []);
-            } catch (error) {
-                console.error('加载配置失败:', error);
-            }
-        };
-        loadConfigs();
+        (async () => {
+            if (!window.electronAPI) return;
+            const cfg = await window.electronAPI.getAllConfig();
+            setProviders(cfg.providers?.customProviders || []);
+        })();
     }, []);
 
-    // 防抖保存自定义 Provider 列表
-    const queueSaveCustomProviders = (nextProviders: CustomProviderData[]) => {
-        if (customSaveTimerRef.current) {
-            window.clearTimeout(customSaveTimerRef.current);
-        }
-
-        customSaveTimerRef.current = window.setTimeout(async () => {
-            try {
-                await window.electronAPI.setConfig('providers.customProviders', nextProviders);
-            } catch (error: any) {
-                message.error('自动保存失败: ' + (error?.message || '未知错误'));
-            }
+    const queueSave = (next: CustomProvider[]) => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = window.setTimeout(async () => {
+            try { await window.electronAPI?.setConfig('providers.customProviders', next); }
+            catch (e: any) { toast.error(e?.message || '保存失败'); }
         }, 400);
     };
 
-    useEffect(() => {
-        return () => {
-            if (customSaveTimerRef.current) {
-                window.clearTimeout(customSaveTimerRef.current);
-            }
+    const add = () => {
+        const p: CustomProvider = {
+            id: `custom_${Date.now()}`, name: '', enabled: true,
+            apiKey: '', models: [], baseUrl: ''
         };
-    }, []);
-
-    // ========== 自定义 Provider 相关 ==========
-
-    // 添加新的自定义 Provider
-    const addCustomProvider = () => {
-        const newId = `custom_${Date.now()}`;
-        const newProvider: CustomProviderData = {
-            id: newId,
-            name: `自定义 ${customProviders.length + 1}`,
-            enabled: true,
-            apiKey: '',
-            models: [],
-            baseUrl: 'https://api.example.com'
-        };
-        const updated = [...customProviders, newProvider];
-        setCustomProviders(updated);
-        queueSaveCustomProviders(updated);
+        const next = [...providers, p];
+        setProviders(next);
+        queueSave(next);
     };
 
-    // 更新自定义 Provider
-    const updateCustomProvider = (id: string, field: string, value: any) => {
-        setCustomProviders((prev) => {
-            const updated = prev.map((p) =>
-                p.id === id ? { ...p, [field]: value } : p
-            );
-            queueSaveCustomProviders(updated);
-            return updated;
+    const set = (id: string, field: keyof CustomProvider, val: any) => {
+        setProviders(prev => {
+            const next = prev.map(p => p.id === id ? { ...p, [field]: val } : p);
+            queueSave(next);
+            return next;
         });
     };
 
-    // 删除自定义 Provider
-    const deleteCustomProvider = (id: string) => {
-        const updated = customProviders.filter((p) => p.id !== id);
-        setCustomProviders(updated);
-        queueSaveCustomProviders(updated);
-        message.success('已删除并自动保存');
+    const del = (id: string) => {
+        const next = providers.filter(p => p.id !== id);
+        setProviders(next);
+        queueSave(next);
+        toast.success('服务商已移除');
     };
 
     return (
-        <div>
-            <Card size="small" style={{ marginBottom: 12, background: 'rgba(255,255,255,0.02)' }}>
-                <Text type="secondary">
-                    这里只维护自定义 Provider 的连接信息。模型选择改为全局配置，在“模型路由 / 默认回退”区域统一维护。
-                </Text>
-            </Card>
-
-            <Divider>自定义 Provider</Divider>
-
-            {customProviders.length === 0 && (
-                <Card size="small" style={{ marginBottom: 12, background: 'rgba(255,255,255,0.02)' }}>
-                    <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description="还没有自定义 Provider，先添加一个再去配置模型路由。"
-                    />
-                </Card>
-            )}
-
-            {/* 自定义 Provider 列表 */}
-            {customProviders.map((custom) => (
-                <Card
-                    key={custom.id}
-                    size="small"
-                    title={
-                        <Space>
-                            <Input
-                                value={custom.name}
-                                onChange={(e) => updateCustomProvider(custom.id, 'name', e.target.value)}
-                                style={{ width: 150 }}
-                                placeholder="Provider 名称"
-                            />
-                            {custom.enabled && <Tag color="success">已启用</Tag>}
-                        </Space>
-                    }
-                    extra={
-                        <Popconfirm
-                            title="确定删除此 Provider?"
-                            onConfirm={() => deleteCustomProvider(custom.id)}
-                        >
-                            <Button type="text" danger icon={<DeleteOutlined />} size="small" />
-                        </Popconfirm>
-                    }
-                    style={{ marginBottom: 12 }}
-                >
-                    <Form layout="vertical" size="small">
-                        <Form.Item label="启用">
-                            <Switch
-                                checked={custom.enabled}
-                                onChange={(checked) => updateCustomProvider(custom.id, 'enabled', checked)}
-                            />
-                        </Form.Item>
-
-                        <Form.Item label="Base URL">
-                            <Input
-                                value={custom.baseUrl}
-                                onChange={(e) => updateCustomProvider(custom.id, 'baseUrl', e.target.value)}
-                                placeholder="https://api.example.com"
-                            />
-                        </Form.Item>
-
-                        <Form.Item label="API Key">
-                            <Input.Password
-                                value={custom.apiKey}
-                                onChange={(e) => updateCustomProvider(custom.id, 'apiKey', e.target.value)}
-                                placeholder="输入 API 密钥"
-                            />
-                        </Form.Item>
-
-                        <Form.Item>
-                            <Text type="secondary">模型由全局“模型路由 / 默认回退”统一控制</Text>
-                        </Form.Item>
-                    </Form>
-                </Card>
-            ))}
-
-            {/* 添加自定义 Provider 按钮 */}
-            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                <Button icon={<PlusOutlined />} onClick={addCustomProvider}>
-                    添加自定义 Provider
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-sm font-semibold">自定义服务商</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">用于模型路由的后端 API 服务连接</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={add}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> 添加
                 </Button>
-                {customProviders.length > 0 && <Text type="secondary">已开启自动保存</Text>}
-            </Space>
+            </div>
+
+            {providers.length === 0 ? (
+                <div className="border border-dashed rounded-lg py-10 flex flex-col items-center text-muted-foreground text-sm">
+                    <p>尚未配置服务商</p>
+                    <Button size="sm" variant="link" onClick={add} className="mt-1 cursor-pointer">添加第一个服务商</Button>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {providers.map(p => (
+                        <div key={p.id} className="border rounded-lg p-4 space-y-3">
+                            <div className="flex items-center gap-3">
+                                <Switch checked={p.enabled} onCheckedChange={c => set(p.id, 'enabled', c)} />
+                                <Input
+                                    value={p.name}
+                                    onChange={e => set(p.id, 'name', e.target.value)}
+                                    placeholder="服务商名称"
+                                    className="h-8 text-sm font-semibold flex-1 border-transparent bg-transparent px-1 focus-visible:bg-muted focus-visible:border-border"
+                                />
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer" onClick={() => del(p.id)}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">基础 API 地址</label>
+                                    <Input value={p.baseUrl} onChange={e => set(p.id, 'baseUrl', e.target.value)} placeholder="https://api.example.com" className="h-8 text-sm font-mono" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">API 密钥</label>
+                                    <Input type="password" value={p.apiKey} onChange={e => set(p.id, 'apiKey', e.target.value)} placeholder="sk-..." className="h-8 text-sm font-mono" />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
-
-export default ProviderConfig;
