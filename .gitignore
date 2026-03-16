@@ -4,11 +4,19 @@ dist-electron
 data
 release
 release-*
+.browser-tools
+playwright-report
+test-results
 *.log
 .DS_Store
 *.asar
 temp-app
 build-output.txt
 vite-error.log
+
+# Local agent/tool metadata
+.agent
 .claude
+.codex
+.omc
 .vscode
