@@ -13,10 +13,10 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 60 1% 20%; /* Earth Gray #353534 */
+    --primary-foreground: 40 2% 68%; /* Ash Gray #afaeac */
     --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
+    --secondary-foreground: 60 1% 20%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
     --accent: 240 4.8% 95.9%;
@@ -26,35 +26,35 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 240 5% 64.9%;
-    --radius: 0.5rem;
+    --radius: 8px; /* Standardize on 8px for standard components */
     --sidebar: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-border: 220 13% 91%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 20 5% 8%; /* Warm deep near-black */
+    --foreground: 45 33% 97%; /* Warm Parchment #faf9f6 */
+    --card: 20 5% 10%;
+    --card-foreground: 45 33% 97%;
+    --popover: 20 5% 10%;
+    --popover-foreground: 45 33% 97%;
+    --primary: 60 1% 20%; /* Earth Gray #353534 - Dark pill background */
+    --primary-foreground: 40 2% 68%; /* Ash Gray #afaeac - Dark pill text */
+    --secondary: 20 5% 14%;
+    --secondary-foreground: 45 33% 97%;
+    --muted: 20 5% 12%;
+    --muted-foreground: 30 1% 52%; /* Stone Gray #868584 */
+    --accent: 20 5% 14%;
+    --accent-foreground: 45 33% 97%;
+    --destructive: 0 72% 56%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --sidebar: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --border: 20 5% 16%;
+    --input: 20 5% 16%;
+    --ring: 60 1% 30%; /* Subtle interaction ring */
+    --sidebar: 20 5% 6%;
+    --sidebar-foreground: 45 33% 97%;
+    --sidebar-border: 20 5% 14%;
   }
 }
 
@@ -68,7 +68,7 @@
     @apply bg-background text-foreground antialiased m-0 p-0 w-full h-full;
     min-height: 100vh;
     min-height: 100dvh;
-    font-family: 'Geist Variable', system-ui, -apple-system, sans-serif;
+    font-family: 'Matter', 'Inter', 'Geist Variable', system-ui, -apple-system, sans-serif;
   }
 
   #root {
@@ -81,17 +81,21 @@
     width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
-    background-color: hsl(var(--background));
+    background: transparent; /* Rely on body bg to give solid warm dark canvas without cold radial */
     color: hsl(var(--foreground));
   }
 }
 
-.app-shell {
-  width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  height: 100vh;
-  height: 100dvh;
+.title-bar {
+  background: transparent;
+}
+
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+
+[data-no-drag="true"] {
+  -webkit-app-region: no-drag;
 }
 
 /* Custom scrollbar */
@@ -103,7 +107,7 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
+  background: hsl(var(--muted)/0.5);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {

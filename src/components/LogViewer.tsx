@@ -72,28 +72,28 @@ export default function LogViewer({ logs, onClear }: LogViewerProps) {
     }, []);
 
     return (
-        <div className="flex min-h-[calc(100dvh-14rem)] min-w-0 flex-col overflow-hidden rounded-lg border">
+        <div className="flex min-h-[calc(100dvh-14rem)] min-w-0 flex-col overflow-hidden rounded-[12px] border border-[rgba(226,226,226,0.35)]">
             {/* Toolbar */}
-            <div className="flex shrink-0 items-center justify-between border-b bg-muted/30 px-3 py-2">
-                <div className="flex gap-1">
+            <div className="flex shrink-0 items-center justify-between border-b border-[rgba(226,226,226,0.15)] bg-black/10 px-4 py-3">
+                <div className="flex gap-2">
                     {(['all', 'info', 'warn', 'error'] as const).map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`px-2.5 py-1 rounded text-[11px] font-medium uppercase tracking-wide cursor-pointer transition-colors ${
-                                filter === f ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
+                            className={`px-4 py-1.5 rounded-[50px] text-[12px] font-medium uppercase tracking-[1.4px] cursor-pointer transition-colors ${
+                                filter === f ? 'bg-[#353534] text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.04]'
                             }`}
                         >
                             {f}{' '}{f === 'all' ? counts.total : counts[f]}
                         </button>
                     ))}
                 </div>
-                <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => setPaused(!paused)}>
-                        {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                <div className="flex gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer rounded-full transition-colors hover:bg-[#353534]" onClick={() => setPaused(!paused)}>
+                        {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer hover:text-destructive" onClick={onClear}>
-                        <Trash2 className="w-3.5 h-3.5" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer rounded-full transition-colors hover:text-destructive hover:bg-destructive/10" onClick={onClear}>
+                        <Trash2 className="w-4 h-4" />
                     </Button>
                 </div>
             </div>

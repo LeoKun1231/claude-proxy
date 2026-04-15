@@ -84,7 +84,9 @@ function mergeRepeatLog(logList: LogItem[], incomingLog: LogItem): LogItem[] {
 export function useLogs(options: UseLogsOptions = {}) {
     const maxLogs = options.maxLogs ?? defaultOptions.maxLogs!;
     const autoScroll = options.autoScroll ?? defaultOptions.autoScroll!;
-    const isWebRuntime = typeof window !== 'undefined' && window.location.protocol !== 'file:';
+    const isDesktopRuntime = typeof window !== 'undefined'
+        && (import.meta.env.VITE_DESKTOP_RUNTIME === 'tauri' || '__TAURI_INTERNALS__' in window);
+    const isWebRuntime = typeof window !== 'undefined' && !isDesktopRuntime;
 
     const [logs, setLogs] = useState<LogItem[]>([]);
     const [isPaused, setIsPaused] = useState(false);
@@ -127,6 +129,10 @@ export function useLogs(options: UseLogsOptions = {}) {
                 headers: { 'Content-Type': 'application/json' },
             }).catch(() => {
                 // 忽略清理失败，避免打断 UI 操作
+            });
+        } else {
+            void window.electronAPI.clearLogs?.().catch(() => {
+                // 桌面模式清理失败时不阻断 UI 操作
             });
         }
     }, [isWebRuntime]);
@@ -221,6 +227,26 @@ export function useLogs(options: UseLogsOptions = {}) {
                 eventSource.close();
             };
         }
+
+        void window.electronAPI.getLogs?.()
+            .then((items) => {
+                if (cancelled || !Array.isArray(items)) return;
+                setLogs(() => {
+                    let historyLogs: LogItem[] = [];
+                    for (const item of items.slice(-maxLogs)) {
+                        historyLogs = mergeRepeatLog(historyLogs, {
+                            id: `log_${++logIdCounter}_${Date.now()}`,
+                            message: item.message,
+                            type: item.type as 'info' | 'warn' | 'error',
+                            timestamp: item.timestamp,
+                        });
+                    }
+                    return historyLogs;
+                });
+            })
+            .catch(() => {
+                // 桌面模式历史日志加载失败时不阻断实时监听
+            });
 
         window.electronAPI.onProxyLog(handleLog);
 

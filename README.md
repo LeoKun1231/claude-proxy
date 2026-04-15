@@ -1,6 +1,6 @@
 # Claude Proxy
 
-一个本地 Claude API 代理工具，支持多 Provider、多模型路由、模型级 API/Key 配置，以及基于数据目录的持久化恢复。
+一个本地 Claude API 代理桌面工具，基于 `Tauri 2 + Rust + React`，支持多 Provider、多模型路由、模型级 API/Key 配置，以及基于数据目录的持久化恢复。
 
 ## 功能特性
 
@@ -22,10 +22,24 @@
 npm install
 ```
 
-### 开发模式
+### 桌面开发模式
 
 ```bash
 npm run dev
+```
+
+该命令会启动：
+
+- Vite 前端开发服务器
+- Tauri 桌面壳
+- Rust 本地代理运行时
+
+### Legacy Web 调试
+
+如需回看迁移前的 Node/Web 链路，可使用：
+
+```bash
+npm run dev:legacy
 ```
 
 ### 浏览器工具隔离用法
@@ -52,11 +66,11 @@ npm run browser:chrome-mcp:server
 ### 构建打包
 
 ```bash
-# 使用 electron-packager 打包
-npm run package
-
-# 使用 electron-builder 打包
+# 构建 Tauri 桌面安装包
 npm run build
+
+# 仅构建前端资源
+npm run build:web
 ```
 
 ## 使用说明
@@ -126,23 +140,25 @@ volumes:
 
 ## 技术栈
 
+- Tauri 2
+- Rust
 - React 18
 - TypeScript
-- Ant Design 5
-- Vite 5
-- Express 4
+- Vite 7
+- Axum + Reqwest
 
 ## 项目结构
 
 ```
 claude-proxy/
-├── server/           # Web API、配置持久化、代理转发
+├── src-tauri/        # Tauri 2 + Rust 桌面运行时、配置持久化、代理转发
 ├── src/              # React 前端源码
 │   ├── components/   # UI 组件
 │   ├── hooks/        # 自定义 Hooks
-│   ├── services/     # Web 端 electronAPI 兼容层
+│   ├── services/     # Desktop / Web 桥接层
 │   └── styles/       # 样式文件
-├── data/             # 默认配置持久化目录
+├── server/           # legacy Node/Web 代理实现，仅用于迁移对照
+├── data/             # legacy 默认配置目录
 ├── public/           # 静态资源
 └── package.json      # 项目配置
 ```

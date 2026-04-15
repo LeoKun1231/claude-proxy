@@ -32,16 +32,16 @@ export default function AppSettings() {
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-sm font-semibold">系统设置</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">桌面应用偏好设置</p>
+                <h3 className="text-[24px] font-normal tracking-[0px] text-foreground">系统设置</h3>
+                <p className="text-[18px] text-muted-foreground mt-1 leading-relaxed">桌面应用偏好设置</p>
             </div>
 
-            <div className="flex items-center justify-between border rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                    <Rocket className="w-4 h-4 text-muted-foreground" />
+            <div className="flex items-center justify-between border border-[rgba(226,226,226,0.35)] rounded-[12px] p-6 bg-transparent">
+                <div className="flex items-center gap-4">
+                    <Rocket className="w-5 h-5 text-muted-foreground" />
                     <div>
-                        <p className="text-sm font-medium">开机时启动</p>
-                        <p className="text-xs text-muted-foreground">在系统启动时自动运行代理服务</p>
+                        <p className="text-[16px] font-medium text-foreground tracking-tight">开机时启动</p>
+                        <p className="text-[14px] text-muted-foreground mt-0.5">在系统启动时自动运行代理服务</p>
                     </div>
                 </div>
                 <Switch checked={autoLaunch} onCheckedChange={toggle} disabled={loading} />

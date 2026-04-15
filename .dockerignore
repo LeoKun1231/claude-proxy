@@ -1,9 +1,0 @@
-.git
-.gitignore
-.vscode
-node_modules
-dist
-dist-electron
-release
-release-packager
-npm-debug.log*
