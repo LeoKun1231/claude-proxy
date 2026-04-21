@@ -11,7 +11,7 @@
 ## 功能特性
 
 - 本地 HTTP 代理，`127.0.0.1:5055` 拦截 Claude API
-- 多 Provider 路由：7 个内置 Provider + 自定义 Provider
+- 按需添加多个上游 Provider，自带 API Key
 - 模型级覆盖：每个源模型可路由到不同的 Provider、Base URL、API Key、目标模型名
 - OpenAI ↔ Anthropic 双向格式兼容（含流式 SSE）
 - 一键写入系统环境变量 `ANTHROPIC_BASE_URL`
