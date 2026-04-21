@@ -11,7 +11,7 @@ A local Claude API proxy desktop app built with **Tauri 2 + Rust + React**. It i
 ## Features
 
 - Local HTTP proxy on `127.0.0.1:5055` that intercepts Claude API traffic
-- Multi-provider routing with 7 built-in providers and custom provider support
+- Configure any number of upstream providers; bring your own API keys
 - Per-model overrides: route each source model to a different provider, base URL, API key, or target model name
 - OpenAI ↔ Anthropic format compatibility layer (including streaming SSE)
 - One-click system environment variable setup for `ANTHROPIC_BASE_URL`
