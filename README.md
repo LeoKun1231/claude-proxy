@@ -1,176 +1,105 @@
 # Claude Proxy
 
-一个本地 Claude API 代理桌面工具，基于 `Tauri 2 + Rust + React`，支持多 Provider、多模型路由、模型级 API/Key 配置，以及基于数据目录的持久化恢复。
+[English](./README.md) | [简体中文](./README.zh-CN.md)
 
-## 功能特性
+A local Claude API proxy desktop app built with **Tauri 2 + Rust + React**. It intercepts Claude/Anthropic API requests on `127.0.0.1:5055` and routes them to configurable upstream providers with per-model API key and base URL overrides.
 
-- 本地 HTTP 代理服务，拦截并转发 Claude API 请求
-- 支持按请求模型精确命中不同上游路由
-- 支持模型级 Base URL、API Key、目标模型配置
-- 可视化配置界面，支持多个 Provider 管理和默认回退映射
-- 支持自定义 API 端点和密钥配置
-- 一键设置系统环境变量
-- 开机自启动选项
-- 实时请求日志查看
-- 支持通过 `DATA_DIR` 持久化配置，容器删除重建后可恢复
+![License](https://img.shields.io/github/license/LeoKun1231/claude-proxy)
+![Release](https://img.shields.io/github/v/release/LeoKun1231/claude-proxy)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 
-## 快速开始
+## Features
 
-### 安装依赖
+- Local HTTP proxy on `127.0.0.1:5055` that intercepts Claude API traffic
+- Multi-provider routing with 7 built-in providers and custom provider support
+- Per-model overrides: route each source model to a different provider, base URL, API key, or target model name
+- OpenAI ↔ Anthropic format compatibility layer (including streaming SSE)
+- One-click system environment variable setup for `ANTHROPIC_BASE_URL`
+- Real-time request log viewer with token usage tracking
+- System tray, float ball, and autostart support
+- Config persistence across restarts (`DATA_DIR/config.json`)
+
+## Installation
+
+Download the latest installer for your platform from the [Releases page](https://github.com/LeoKun1231/claude-proxy/releases):
+
+| Platform | Artifact |
+|---|---|
+| Windows | `claude-proxy_<version>_x64-setup.exe` or `.msi` |
+| macOS (Apple Silicon) | `claude-proxy_<version>_aarch64.dmg` |
+| macOS (Intel) | `claude-proxy_<version>_x64.dmg` |
+| Linux | `claude-proxy_<version>_amd64.AppImage` or `.deb` |
+
+> macOS binaries are **not code-signed**. On first launch, right-click the app and choose "Open" to bypass Gatekeeper. Windows builds are also unsigned — SmartScreen may prompt once.
+
+## Quick Start
+
+1. Launch Claude Proxy and click **Start Service**. The proxy listens on `http://127.0.0.1:5055`.
+2. Click **Apply Env Vars** to export `ANTHROPIC_BASE_URL` system-wide, or set it manually:
+
+   ```bash
+   # macOS / Linux
+   export ANTHROPIC_BASE_URL=http://127.0.0.1:5055
+
+   # Windows PowerShell
+   $env:ANTHROPIC_BASE_URL = "http://127.0.0.1:5055"
+   ```
+
+3. Configure providers in the **Providers** tab (name, base URL, API key, model list).
+4. Add per-model routes in the **Model Routing** tab to steer specific request models to specific providers/keys.
+5. Pick a default fallback in **Default Fallback** for models that don't match any route.
+
+Your Claude CLI, SDK, or any Anthropic-compatible client will now flow through the proxy.
+
+## Build from Source
+
+Prerequisites: **Node.js 20+**, **Rust 1.77+**, and platform build tools ([Tauri prerequisites](https://tauri.app/start/prerequisites/)).
 
 ```bash
+git clone https://github.com/LeoKun1231/claude-proxy.git
+cd claude-proxy
 npm install
-```
 
-### 桌面开发模式
-
-```bash
+# Dev mode (desktop shell + hot-reload frontend)
 npm run dev
-```
 
-该命令会启动：
+# Frontend-only
+npm run dev:web
 
-- Vite 前端开发服务器
-- Tauri 桌面壳
-- Rust 本地代理运行时
-
-### Legacy Web 调试
-
-如需回看迁移前的 Node/Web 链路，可使用：
-
-```bash
-npm run dev:legacy
-```
-
-### 浏览器工具隔离用法
-
-仓库内已经预留三套互不共享的浏览器入口，避免 `Playwright`、`chrome-devtools-mcp`、`agent-browser` 抢同一个实例：
-
-```bash
-# 检查本机浏览器工具状态
-npm run browser:doctor
-
-# agent-browser: 独立 profile
-npm run browser:agent:app
-
-# Playwright: 独立 profile
-npm run browser:playwright:app
-
-# chrome-devtools-mcp: 先拉起独立 Chrome，再让 MCP 连接到 9223
-npm run browser:chrome-mcp:app
-npm run browser:chrome-mcp:server
-```
-
-详细约定见 `docs/browser-tooling.md`。
-
-### 构建打包
-
-```bash
-# 构建 Tauri 桌面安装包
+# Production build (produces platform installer in src-tauri/target/release/bundle/)
 npm run build
-
-# 仅构建前端资源
-npm run build:web
 ```
 
-## 使用说明
-
-### 1. 启动代理服务
-
-打开应用后，点击"启动服务"按钮，代理服务将在本地 5055 端口启动。
-
-### 2. 配置客户端
-
-#### Claude CLI
-
-在应用中点击"一键配置代理"按钮，或手动设置环境变量：
-
-```bash
-# Windows PowerShell
-$env:ANTHROPIC_BASE_URL="http://127.0.0.1:5055"
-
-# Linux/Mac
-export ANTHROPIC_BASE_URL="http://127.0.0.1:5055"
-```
-
-#### Python SDK
-
-```python
-import os
-os.environ["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:5055"
-```
-
-### 3. 配置模型路由
-
-在"模型路由配置"区域为不同的源模型分别配置目标上游：
-
-- 源模型：客户端请求中的 `model`
-- 目标 Provider：命中后使用的上游服务
-- 目标模型：转发到上游时实际写入的模型名
-- Base URL：该模型路由专用网关地址
-- API Key：该模型路由专用密钥
-
-代理会优先按源模型精确命中这些路由；未命中时才使用默认回退映射。
-
-### 4. 配置 Provider（共享 / 兼容层）
-
-在"Provider 配置（共享 / 兼容）"区域维护共享 Provider 信息和 legacy fallback 可选目标：
-
-- 名称：自定义名称
-- Base URL：API 端点地址
-- API Key：你的密钥
-- 模型列表：支持的模型 ID
-
-### 5. 默认回退映射
-
-在"模型路由 / 默认回退"区域选择未命中任何模型路由时的默认目标。该设置会同步写入 legacy `main/haiku` 映射。
-
-## Docker 持久化
-
-服务默认把运行时配置写到 `DATA_DIR/config.json`。在 `docker-compose.yml` 中，`DATA_DIR` 被设置为 `/app/data`，并通过卷挂载到宿主机的 `./data`：
-
-```yaml
-environment:
-  DATA_DIR: "/app/data"
-volumes:
-  - ./data:/app/data
-```
-
-只要这个宿主机目录或命名卷还在，即使 Docker 容器被删除并重新创建，模型路由、Provider 和默认回退配置也会自动恢复。
-
-## 技术栈
-
-- Tauri 2
-- Rust
-- React 18
-- TypeScript
-- Vite 7
-- Axum + Reqwest
-
-## 项目结构
+## Architecture
 
 ```
-claude-proxy/
-├── src-tauri/        # Tauri 2 + Rust 桌面运行时、配置持久化、代理转发
-├── src/              # React 前端源码
-│   ├── components/   # UI 组件
-│   ├── hooks/        # 自定义 Hooks
-│   ├── services/     # Desktop / Web 桥接层
-│   └── styles/       # 样式文件
-├── server/           # legacy Node/Web 代理实现，仅用于迁移对照
-├── data/             # legacy 默认配置目录
-├── public/           # 静态资源
-└── package.json      # 项目配置
+┌─────────────────────────────────────────────────┐
+│  React UI (src/)                                │
+│  - Desktop workbench, float ball, log viewer    │
+└────────────────┬────────────────────────────────┘
+                 │ Tauri IPC
+┌────────────────▼────────────────────────────────┐
+│  Rust backend (src-tauri/src/)                  │
+│  - config.rs     Thread-safe config store       │
+│  - proxy.rs      Axum HTTP server (:5055)       │
+│  - openai.rs     OpenAI ↔ Anthropic converter   │
+│  - commands.rs   24 IPC commands                │
+└─────────────────────────────────────────────────┘
 ```
 
-## 开发说明
+Routing resolution order:
+1. Exact model route match (with wildcard support)
+2. Provider inference (source model listed in an enabled provider)
+3. Legacy fallback mapping
 
-### 构建前端
+## Contributing
 
-```bash
-npx vite build
-```
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Issues and PRs are welcome.
 
-## 许可证
+## Security
 
-MIT License
+Please report vulnerabilities privately — see [SECURITY.md](./SECURITY.md).
+
+## License
+
+[MIT](./LICENSE) © uzhao

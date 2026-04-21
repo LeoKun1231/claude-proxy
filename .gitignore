@@ -1,17 +1,18 @@
 node_modules
 dist
 data
-.toolchain
-.browser-tools
-playwright-report
-test-results
 *.log
 .DS_Store
-*.asar
 
-# Local agent/tool metadata
-.agent
+# Editor / IDE
+.vscode
+.idea
+
+# Local agent / tooling metadata
 .claude
+.agent
 .codex
 .omc
-.vscode
+
+# Tauri build artifacts
+src-tauri/target
