@@ -244,7 +244,6 @@ fn get_or_create_float_window(state: &DesktopState) -> Result<WebviewWindow, Str
         .always_on_top(true)
         .skip_taskbar(true)
         .shadow(false)
-        .transparent(true)
         .visible(false)
         .focused(true)
         .center()
