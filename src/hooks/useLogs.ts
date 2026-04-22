@@ -9,6 +9,11 @@ export interface LogItem {
     message: string;
     type: 'info' | 'warn' | 'error';
     timestamp: string;
+    requestId?: string;
+    providerId?: string;
+    providerLabel?: string;
+    model?: string;
+    routeKind?: string;
     repeatCount?: number;
 }
 
@@ -20,7 +25,7 @@ interface UseLogsOptions {
 }
 
 const defaultOptions: UseLogsOptions = {
-    maxLogs: 200,
+    maxLogs: 5000,
     autoScroll: true,
 };
 
@@ -34,7 +39,7 @@ function mergeLogCollections(history: LogItem[], current: LogItem[], maxLogs: nu
     const merged: LogItem[] = [];
 
     const pushLog = (log: LogItem) => {
-        const key = `${log.timestamp}|${log.type}|${log.message}`;
+        const key = `${log.timestamp}|${log.type}|${log.message}|${log.requestId || ''}|${log.providerLabel || ''}|${log.model || ''}|${log.routeKind || ''}`;
         if (seen.has(key)) {
             return;
         }
@@ -84,7 +89,9 @@ function mergeRepeatLog(logList: LogItem[], incomingLog: LogItem): LogItem[] {
 export function useLogs(options: UseLogsOptions = {}) {
     const maxLogs = options.maxLogs ?? defaultOptions.maxLogs!;
     const autoScroll = options.autoScroll ?? defaultOptions.autoScroll!;
-    const isWebRuntime = typeof window !== 'undefined' && window.location.protocol !== 'file:';
+    const isDesktopRuntime = typeof window !== 'undefined'
+        && (import.meta.env.VITE_DESKTOP_RUNTIME === 'tauri' || '__TAURI_INTERNALS__' in window);
+    const isWebRuntime = typeof window !== 'undefined' && !isDesktopRuntime;
 
     const [logs, setLogs] = useState<LogItem[]>([]);
     const [isPaused, setIsPaused] = useState(false);
@@ -92,7 +99,16 @@ export function useLogs(options: UseLogsOptions = {}) {
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
     // 添加日志
-    const addLog = useCallback((data: { message: string; type: 'info' | 'warn' | 'error'; timestamp: string }) => {
+    const addLog = useCallback((data: {
+        message: string;
+        type: 'info' | 'warn' | 'error';
+        timestamp: string;
+        requestId?: string;
+        providerId?: string;
+        providerLabel?: string;
+        model?: string;
+        routeKind?: string;
+    }) => {
         const newLog: LogItem = {
             id: `log_${++logIdCounter}_${Date.now()}`,
             ...data,
@@ -127,6 +143,10 @@ export function useLogs(options: UseLogsOptions = {}) {
                 headers: { 'Content-Type': 'application/json' },
             }).catch(() => {
                 // 忽略清理失败，避免打断 UI 操作
+            });
+        } else {
+            void window.electronAPI.clearLogs?.().catch(() => {
+                // 桌面模式清理失败时不阻断 UI 操作
             });
         }
     }, [isWebRuntime]);
@@ -174,7 +194,16 @@ export function useLogs(options: UseLogsOptions = {}) {
         let cancelled = false;
 
         const handleLog = (data: any) => {
-            addLog(data as { message: string; type: 'info' | 'warn' | 'error'; timestamp: string });
+            addLog(data as {
+                message: string;
+                type: 'info' | 'warn' | 'error';
+                timestamp: string;
+                requestId?: string;
+                providerId?: string;
+                providerLabel?: string;
+                model?: string;
+                routeKind?: string;
+            });
         };
 
         if (isWebRuntime) {
@@ -185,6 +214,11 @@ export function useLogs(options: UseLogsOptions = {}) {
                     message: string;
                     type: 'info' | 'warn' | 'error';
                     timestamp: string;
+                    requestId?: string;
+                    providerId?: string;
+                    providerLabel?: string;
+                    model?: string;
+                    routeKind?: string;
                 };
                 handleLog(payload);
             });
@@ -194,7 +228,16 @@ export function useLogs(options: UseLogsOptions = {}) {
                     if (!response.ok) {
                         throw new Error(`请求失败: ${response.status}`);
                     }
-                    return response.json() as Promise<Array<{ message: string; type: 'info' | 'warn' | 'error'; timestamp: string }>>;
+                    return response.json() as Promise<Array<{
+                        message: string;
+                        type: 'info' | 'warn' | 'error';
+                        timestamp: string;
+                        requestId?: string;
+                        providerId?: string;
+                        providerLabel?: string;
+                        model?: string;
+                        routeKind?: string;
+                    }>>;
                 })
                 .then((items) => {
                     if (cancelled || !Array.isArray(items)) {
@@ -221,6 +264,31 @@ export function useLogs(options: UseLogsOptions = {}) {
                 eventSource.close();
             };
         }
+
+        void window.electronAPI.getLogs?.()
+            .then((items) => {
+                if (cancelled || !Array.isArray(items)) return;
+                setLogs(() => {
+                    let historyLogs: LogItem[] = [];
+                    for (const item of items.slice(-maxLogs)) {
+                            historyLogs = mergeRepeatLog(historyLogs, {
+                                id: `log_${++logIdCounter}_${Date.now()}`,
+                                message: item.message,
+                                type: item.type as 'info' | 'warn' | 'error',
+                                timestamp: item.timestamp,
+                                requestId: item.requestId,
+                                providerId: item.providerId,
+                                providerLabel: item.providerLabel,
+                                model: item.model,
+                                routeKind: item.routeKind,
+                            });
+                    }
+                    return historyLogs;
+                });
+            })
+            .catch(() => {
+                // 桌面模式历史日志加载失败时不阻断实时监听
+            });
 
         window.electronAPI.onProxyLog(handleLog);
 

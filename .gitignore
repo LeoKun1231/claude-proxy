@@ -1,18 +1,13 @@
 node_modules
 dist
-dist-electron
 data
-release
-release-*
+.toolchain
 .browser-tools
 playwright-report
 test-results
 *.log
 .DS_Store
 *.asar
-temp-app
-build-output.txt
-vite-error.log
 
 # Local agent/tool metadata
 .agent
@@ -20,3 +15,9 @@ vite-error.log
 .codex
 .omc
 .vscode
+
+.playwright-mcp/
+BUG_RECORDS.md
+.idea/
+CLAUDE.md
+DESIGN.md

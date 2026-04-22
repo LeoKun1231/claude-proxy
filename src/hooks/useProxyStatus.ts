@@ -3,6 +3,7 @@
  * 使用智能轮询策略，减少不必要的请求
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { DEFAULT_PROXY_PORT } from '@/types/config';
 
 interface ProxyStatus {
     running: boolean;
@@ -30,7 +31,7 @@ const defaultOptions: UseProxyStatusOptions = {
 export function useProxyStatus(options: UseProxyStatusOptions = {}) {
     const opts = { ...defaultOptions, ...options };
 
-    const [status, setStatus] = useState<ProxyStatus>({ running: false, port: 5055 });
+    const [status, setStatus] = useState<ProxyStatus>({ running: false, port: DEFAULT_PROXY_PORT });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
