@@ -88,9 +88,7 @@ export default function DesktopWorkbenchHeader({
 
     const handleClose = useCallback(async () => {
         try {
-            // 隐藏主窗口并显示悬浮球
             await getCurrentWindow().hide();
-            await window.electronAPI?.showFloatWindow();
         } catch (e) {
             console.error('隐藏窗口失败:', e);
         }
@@ -140,16 +138,6 @@ export default function DesktopWorkbenchHeader({
                         <DropdownMenuItem onClick={onCopyCommand} className="cursor-pointer">
                             <Copy className="mr-2 h-4 w-4" /> 复制环境命令
                         </DropdownMenuItem>
-                        {isDesktopRuntime && (
-                            <>
-                                <DropdownMenuItem onClick={() => window.electronAPI?.showFloatWindow()} className="cursor-pointer">
-                                    显示悬浮窗
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => window.electronAPI?.hideFloatWindow()} className="cursor-pointer">
-                                    隐藏悬浮窗
-                                </DropdownMenuItem>
-                            </>
-                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
 

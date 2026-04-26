@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import DesktopWorkbench from './components/DesktopWorkbench';
-import FloatBall from './components/FloatBall';
-import { useLogs, useProxyStatus } from './hooks';
+import { useProxyStatus } from './hooks';
 import { toast } from 'sonner';
 
 const QUICK_COMMAND = [
@@ -21,8 +20,6 @@ export default function App() {
         fastPollCount: 3,
         fastPollInterval: 1000,
     });
-    const { logs, clearLogs, isPaused, togglePause } = useLogs({ maxLogs: 5000, autoScroll: false });
-    const isFloatMode = typeof window !== 'undefined' && window.location.hash === '#/float';
     const isDesktopRuntime = typeof window !== 'undefined'
         && (import.meta.env.VITE_DESKTOP_RUNTIME === 'tauri' || '__TAURI_INTERNALS__' in window);
 
@@ -101,21 +98,15 @@ export default function App() {
         }
     }, [proxyStatus.port]);
 
-    if (isFloatMode) return <FloatBall />;
-
     return (
         <DesktopWorkbench
             isDesktopRuntime={isDesktopRuntime}
             proxyStatus={proxyStatus}
             proxyLoading={proxyLoading}
-            logs={logs}
-            logsPaused={isPaused}
             onStart={handleStart}
             onStop={handleStop}
             onRestart={handleRestart}
             onReleasePort={handleReleasePort}
-            onClearLogs={clearLogs}
-            onToggleLogsPause={togglePause}
             onCopyProxyUrl={handleCopyProxyUrl}
             onCopyCommand={handleCopyCommand}
             onExport={handleExport}

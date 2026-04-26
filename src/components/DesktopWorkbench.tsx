@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { KeyRound, Route, ScrollText, Settings, Activity, BarChart3 } from 'lucide-react';
 import DesktopWorkbenchHeader from './DesktopWorkbenchHeader';
 import EnvConfig from './EnvConfig';
@@ -10,6 +10,7 @@ import AppSettings from './Settings';
 import StatusBar from './StatusBar';
 import TokenStatsPanel from './TokenStatsPanel';
 import { cn } from '@/lib/utils';
+import { useLogs } from '@/hooks';
 import type { RoutingMode } from '@/types/config';
 
 function RoutingModeView() {
@@ -93,26 +94,14 @@ function RoutingModeView() {
 
 export type TabKey = 'routing' | 'providers' | 'tokens' | 'logs' | 'settings';
 
-interface LogItem {
-    message: string;
-    type: 'info' | 'warn' | 'error';
-    timestamp: string;
-    id?: string;
-    repeatCount?: number;
-}
-
 interface DesktopWorkbenchProps {
     isDesktopRuntime: boolean;
     proxyStatus: { running: boolean; port: number };
     proxyLoading: boolean;
-    logs: LogItem[];
-    logsPaused: boolean;
     onStart: () => void;
     onStop: () => void;
     onRestart: () => void;
     onReleasePort: () => void;
-    onClearLogs: () => void;
-    onToggleLogsPause: () => void;
     onCopyProxyUrl: () => void;
     onCopyCommand: () => void;
     onExport: () => void;
@@ -157,14 +146,20 @@ const TAB_ITEMS = [
     },
 ] as const;
 
-function SectionContent({
+function LogsSection() {
+    const { logs, clearLogs, isPaused, togglePause } = useLogs({ maxLogs: 5000, autoScroll: false });
+
+    return (
+        <div className="animate-in fade-in duration-500 fill-mode-both">
+            <LogViewer logs={logs} paused={isPaused} onTogglePause={togglePause} onClear={clearLogs} />
+        </div>
+    );
+}
+
+const SectionContent = memo(function SectionContent({
     activeTab,
     proxyStatus,
     proxyLoading,
-    logs,
-    logsPaused,
-    onClearLogs,
-    onToggleLogsPause,
     onStart,
     onStop,
     onRestart,
@@ -173,10 +168,6 @@ function SectionContent({
     activeTab: TabKey;
     proxyStatus: { running: boolean; port: number };
     proxyLoading: boolean;
-    logs: LogItem[];
-    logsPaused: boolean;
-    onClearLogs: () => void;
-    onToggleLogsPause: () => void;
     onStart: () => void;
     onStop: () => void;
     onRestart: () => void;
@@ -200,11 +191,7 @@ function SectionContent({
     if (activeTab === 'providers') return <div className="animate-in fade-in duration-500 fill-mode-both"><ProviderConfig /></div>;
     if (activeTab === 'tokens') return <div className="animate-in fade-in duration-500 fill-mode-both"><TokenStatsPanel /></div>;
     if (activeTab === 'logs') {
-        return (
-            <div className="animate-in fade-in duration-500 fill-mode-both">
-                <LogViewer logs={logs} paused={logsPaused} onTogglePause={onToggleLogsPause} onClear={onClearLogs} />
-            </div>
-        );
+        return <LogsSection />;
     }
 
     return (
@@ -213,20 +200,16 @@ function SectionContent({
             <AppSettings />
         </div>
     );
-}
+});
 
 export default function DesktopWorkbench({
     isDesktopRuntime,
     proxyStatus,
     proxyLoading,
-    logs,
-    logsPaused,
     onStart,
     onStop,
     onRestart,
     onReleasePort,
-    onClearLogs,
-    onToggleLogsPause,
     onCopyProxyUrl,
     onCopyCommand,
     onExport,
@@ -311,10 +294,6 @@ export default function DesktopWorkbench({
                                 activeTab={activeTab}
                                 proxyStatus={proxyStatus}
                                 proxyLoading={proxyLoading}
-                                logs={logs}
-                                logsPaused={logsPaused}
-                                onClearLogs={onClearLogs}
-                                onToggleLogsPause={onToggleLogsPause}
                                 onStart={onStart}
                                 onStop={onStop}
                                 onRestart={onRestart}

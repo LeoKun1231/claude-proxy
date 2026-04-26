@@ -240,13 +240,7 @@ pub fn run() {
             commands::clear_logs,
             commands::get_logs,
             commands::get_token_usage_records,
-            commands::clear_token_usage_records,
-            commands::show_main_window,
-            commands::hide_main_window,
-            commands::show_float_window,
-            commands::hide_float_window,
-            commands::move_float_window,
-            commands::show_context_menu
+            commands::clear_token_usage_records
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

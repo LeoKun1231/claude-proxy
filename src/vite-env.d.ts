@@ -33,11 +33,6 @@ interface ElectronAPI {
         processes: Array<{ pid: number; name: string }>;
         message: string;
     }>;
-    showFloatWindow: () => Promise<void>;
-    hideFloatWindow: () => Promise<void>;
-    showMainWindow: () => Promise<void>;
-    hideMainWindow: () => Promise<void>;
-    moveFloatWindow: (x: number, y: number) => Promise<void>;
     exportConfig: () => Promise<{ success: boolean; path?: string; error?: string }>;
     importConfig: () => Promise<{ success: boolean; path?: string; error?: string }>;
     getLogs?: () => Promise<Array<{
@@ -54,9 +49,6 @@ interface ElectronAPI {
     clearLogs?: () => Promise<void>;
     getTokenUsageRecords?: () => Promise<TokenUsageRecord[]>;
     clearTokenUsageRecords?: () => Promise<void>;
-    showContextMenu: (options: { label: string; value: string; checked?: boolean }[]) => void;
-    onContextMenuCommand: (callback: (value: string) => void) => void;
-    removeContextMenuListener: () => void;
     onProxyLog: (callback: (data: {
         message: string;
         type: string;

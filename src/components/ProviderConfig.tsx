@@ -1,6 +1,8 @@
-import { KeyboardEvent, useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { DragEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { GripVertical, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { parseModelsInput, mergeModels, removeProviderModel } from '@/lib/provider-options';
+import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -30,22 +32,10 @@ function normalizeProvider(provider: CustomProvider): CustomProvider {
     };
 }
 
-function parseModels(value: string) {
-    const unique = new Set<string>();
-    return value
-        .split(/[,\n]/)
-        .map(item => item.trim())
-        .filter(Boolean)
-        .filter((item) => {
-            if (unique.has(item)) return false;
-            unique.add(item);
-            return true;
-        });
-}
-
 export default function ProviderConfig() {
     const [providers, setProviders] = useState<CustomProvider[]>([]);
     const [modelDrafts, setModelDrafts] = useState<Record<string, string>>({});
+    const [draggingProviderId, setDraggingProviderId] = useState<string | null>(null);
     const timerRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -103,14 +93,13 @@ export default function ProviderConfig() {
     };
 
     const addModels = (id: string) => {
-        const parsed = parseModels(modelDrafts[id] || '');
+        const parsed = parseModelsInput(modelDrafts[id] || '');
         if (parsed.length === 0) return;
 
         setProviders(prev => {
             const next = prev.map(provider => {
                 if (provider.id !== id) return provider;
-                const merged = Array.from(new Set([...provider.models, ...parsed]));
-                return { ...provider, models: merged };
+                return { ...provider, models: mergeModels(provider.models, parsed) };
             });
             queueSave(next);
             return next;
@@ -123,7 +112,7 @@ export default function ProviderConfig() {
         setProviders(prev => {
             const next = prev.map(provider => (
                 provider.id === id
-                    ? { ...provider, models: provider.models.filter(item => item !== model) }
+                    ? { ...provider, models: removeProviderModel(provider.models, model) }
                     : provider
             ));
             queueSave(next);
@@ -187,6 +176,42 @@ export default function ProviderConfig() {
         toast.success('服务商已移除');
     };
 
+    const moveProvider = (fromId: string, toId: string) => {
+        if (fromId === toId) return;
+        setProviders(prev => {
+            const fromIndex = prev.findIndex(provider => provider.id === fromId);
+            const toIndex = prev.findIndex(provider => provider.id === toId);
+            if (fromIndex < 0 || toIndex < 0) return prev;
+            const next = [...prev];
+            const [moved] = next.splice(fromIndex, 1);
+            next.splice(toIndex, 0, moved);
+            queueSave(next);
+            return next;
+        });
+    };
+
+    const onProviderDragStart = (event: DragEvent<HTMLElement>, id: string) => {
+        setDraggingProviderId(id);
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', id);
+    };
+
+    const onProviderDragOver = (event: DragEvent<HTMLElement>) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    };
+
+    const onProviderDrop = (event: DragEvent<HTMLElement>, id: string) => {
+        event.preventDefault();
+        const fromId = draggingProviderId || event.dataTransfer.getData('text/plain');
+        if (fromId) moveProvider(fromId, id);
+        setDraggingProviderId(null);
+    };
+
+    const onProviderDragEnd = () => {
+        setDraggingProviderId(null);
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -207,8 +232,26 @@ export default function ProviderConfig() {
             ) : (
                 <div className="space-y-4">
                     {providers.map(provider => (
-                        <div key={provider.id} className="border border-[rgba(226,226,226,0.35)] rounded-[12px] p-6 space-y-5 bg-transparent">
+                        <div
+                            key={provider.id}
+                            onDragOver={onProviderDragOver}
+                            onDrop={(event) => onProviderDrop(event, provider.id)}
+                            onDragEnd={onProviderDragEnd}
+                            className={cn(
+                                'border border-[rgba(226,226,226,0.35)] rounded-[12px] p-6 space-y-5 bg-transparent transition-opacity',
+                                draggingProviderId === provider.id && 'opacity-55'
+                            )}
+                        >
                             <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    draggable
+                                    onDragStart={(event) => onProviderDragStart(event, provider.id)}
+                                    className="flex h-8 w-6 shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 active:cursor-grabbing"
+                                    aria-label="拖拽排序"
+                                >
+                                    <GripVertical className="h-5 w-5" />
+                                </button>
                                 <Switch checked={provider.enabled} onCheckedChange={checked => updateProvider(provider.id, 'enabled', checked)} />
                                 <Input
                                     value={provider.name}

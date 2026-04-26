@@ -3,10 +3,7 @@ use std::process::Command;
 
 use serde_json::Value;
 use serde::{Deserialize, Serialize};
-use tauri::{
-    menu::{CheckMenuItem, Menu},
-    AppHandle, Emitter, LogicalPosition, Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_dialog::DialogExt;
 use tokio::sync::oneshot;
@@ -23,20 +20,8 @@ pub struct DesktopState {
     pub proxy_manager: ProxyManager,
 }
 
-const FLOAT_WINDOW_LABEL: &str = "float";
-const CONTEXT_MENU_PREFIX: &str = "context-target:";
-
 fn configured_proxy_port(state: &DesktopState) -> u16 {
     state.config_store.get_config().settings.proxy_port
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextMenuOption {
-    pub label: String,
-    pub value: String,
-    #[serde(default)]
-    pub checked: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -219,50 +204,6 @@ impl DesktopState {
             serde_json::json!({ "importedAt": chrono::Utc::now().timestamp_millis() }),
         );
     }
-}
-
-fn float_window_script() -> &'static str {
-    r#"
-      if (window.location.hash !== '#/float') {
-        const base = window.location.href.split('#')[0];
-        window.location.replace(`${base}#/float`);
-      }
-    "#
-}
-
-fn get_or_create_float_window(state: &DesktopState) -> Result<WebviewWindow, String> {
-    if let Some(window) = state.app_handle.get_webview_window(FLOAT_WINDOW_LABEL) {
-        return Ok(window);
-    }
-
-    let app_handle = state.app_handle.clone();
-    let window = WebviewWindowBuilder::new(&app_handle, FLOAT_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
-        .title("Claude Proxy Float")
-        .inner_size(72.0, 72.0)
-        .resizable(false)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .shadow(false)
-        .visible(false)
-        .focused(true)
-        .center()
-        .initialization_script(float_window_script())
-        .build()
-        .map_err(|err| err.to_string())?;
-
-    let app_handle_for_menu = app_handle.clone();
-    window.on_menu_event(move |_window, event| {
-        let menu_id = event.id().as_ref();
-        if let Some(value) = menu_id.strip_prefix(CONTEXT_MENU_PREFIX) {
-            let _ = app_handle_for_menu.emit(
-                "context-menu-command",
-                serde_json::json!({ "value": value }),
-            );
-        }
-    });
-
-    Ok(window)
 }
 
 #[tauri::command]
@@ -543,83 +484,3 @@ pub async fn clear_token_usage_records(state: State<'_, DesktopState>) -> Result
     Ok(true)
 }
 
-#[tauri::command]
-pub async fn show_main_window(state: State<'_, DesktopState>) -> Result<(), String> {
-    if let Some(window) = state.app_handle.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-    if let Some(float_window) = state.app_handle.get_webview_window(FLOAT_WINDOW_LABEL) {
-        let _ = float_window.hide();
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn hide_main_window(state: State<'_, DesktopState>) -> Result<(), String> {
-    if let Some(window) = state.app_handle.get_webview_window("main") {
-        let _ = window.hide();
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn show_float_window(state: State<'_, DesktopState>) -> Result<(), String> {
-    let window = get_or_create_float_window(&state)?;
-    let _ = window.show();
-    // Linux/Wayland WM 有时会在 show 后重置 always_on_top，需要再次强制设置
-    let _ = window.set_always_on_top(true);
-    let _ = window.set_focus();
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn hide_float_window(state: State<'_, DesktopState>) -> Result<(), String> {
-    if let Some(window) = state.app_handle.get_webview_window(FLOAT_WINDOW_LABEL) {
-        let _ = window.hide();
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn move_float_window(
-    state: State<'_, DesktopState>,
-    x: f64,
-    y: f64,
-) -> Result<(), String> {
-    if let Some(window) = state.app_handle.get_webview_window(FLOAT_WINDOW_LABEL) {
-        let _ = window.set_position(LogicalPosition::new(x, y));
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn show_context_menu(
-    state: State<'_, DesktopState>,
-    window: WebviewWindow,
-    options: Vec<ContextMenuOption>,
-) -> Result<(), String> {
-    let menu = Menu::new(&state.app_handle).map_err(|err| err.to_string())?;
-    let menu_items = options
-        .iter()
-        .map(|option| {
-            CheckMenuItem::with_id(
-                &state.app_handle,
-                format!("{CONTEXT_MENU_PREFIX}{}", option.value),
-                &option.label,
-                true,
-                option.checked,
-                None::<&str>,
-            )
-            .map_err(|err| err.to_string())
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let refs = menu_items
-        .iter()
-        .map(|item| item as &dyn tauri::menu::IsMenuItem<_>)
-        .collect::<Vec<_>>();
-    menu.append_items(&refs).map_err(|err| err.to_string())?;
-    window.popup_menu(&menu).map_err(|err| err.to_string())?;
-    Ok(())
-}

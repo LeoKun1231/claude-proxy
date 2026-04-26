@@ -26,11 +26,9 @@ type ReleasePortResult = {
 const proxyLogCallbacks = new Set<(data: ProxyLogPayload) => void>();
 const configUpdatedCallbacks = new Set<(payload: ConfigUpdatePayload) => void>();
 const configImportedCallbacks = new Set<() => void>();
-const contextMenuCommandCallbacks = new Set<(value: string) => void>();
 let proxyLogUnlisten: UnlistenFn | null = null;
 let configUpdatedUnlisten: UnlistenFn | null = null;
 let configImportedUnlisten: UnlistenFn | null = null;
-let contextMenuCommandUnlisten: UnlistenFn | null = null;
 
 async function ensureProxyLogListener() {
     if (proxyLogUnlisten) return;
@@ -57,14 +55,7 @@ async function ensureConfigImportedListener() {
     });
 }
 
-async function ensureContextMenuCommandListener() {
-    if (contextMenuCommandUnlisten) return;
-    contextMenuCommandUnlisten = await listen<{ value: string }>('context-menu-command', (event) => {
-        contextMenuCommandCallbacks.forEach((callback) => callback(event.payload.value));
-    });
-}
-
-async function cleanupEventListener(kind: 'proxy' | 'configUpdated' | 'configImported' | 'contextMenuCommand') {
+async function cleanupEventListener(kind: 'proxy' | 'configUpdated' | 'configImported') {
     if (kind === 'proxy' && proxyLogCallbacks.size === 0 && proxyLogUnlisten) {
         await proxyLogUnlisten();
         proxyLogUnlisten = null;
@@ -76,10 +67,6 @@ async function cleanupEventListener(kind: 'proxy' | 'configUpdated' | 'configImp
     if (kind === 'configImported' && configImportedCallbacks.size === 0 && configImportedUnlisten) {
         await configImportedUnlisten();
         configImportedUnlisten = null;
-    }
-    if (kind === 'contextMenuCommand' && contextMenuCommandCallbacks.size === 0 && contextMenuCommandUnlisten) {
-        await contextMenuCommandUnlisten();
-        contextMenuCommandUnlisten = null;
     }
 }
 
@@ -130,21 +117,6 @@ function createDesktopAPI() {
         async releasePortProcess(port?: number) {
             return invoke<ReleasePortResult>('release_port_process', { port });
         },
-        async showFloatWindow() {
-            await invoke('show_float_window');
-        },
-        async hideFloatWindow() {
-            await invoke('hide_float_window');
-        },
-        async showMainWindow() {
-            await invoke('show_main_window');
-        },
-        async hideMainWindow() {
-            await invoke('hide_main_window');
-        },
-        async moveFloatWindow(x: number, y: number) {
-            await invoke('move_float_window', { x, y });
-        },
         async exportConfig() {
             try {
                 const path = await invoke<string>('export_config');
@@ -172,17 +144,6 @@ function createDesktopAPI() {
         },
         async clearTokenUsageRecords() {
             await invoke('clear_token_usage_records');
-        },
-        showContextMenu(options: { label: string; value: string; checked?: boolean }[]) {
-            void invoke('show_context_menu', { options });
-        },
-        onContextMenuCommand(callback: (value: string) => void) {
-            contextMenuCommandCallbacks.add(callback);
-            void ensureContextMenuCommandListener();
-        },
-        removeContextMenuListener() {
-            contextMenuCommandCallbacks.clear();
-            void cleanupEventListener('contextMenuCommand');
         },
         onProxyLog(callback: (data: ProxyLogPayload) => void) {
             proxyLogCallbacks.add(callback);

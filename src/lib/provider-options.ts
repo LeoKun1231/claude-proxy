@@ -17,7 +17,7 @@ const BUILTIN_PROVIDER_META = [
     { id: 'cliproxyapi', label: 'CLI Proxy API' },
 ] as const;
 
-export function normalizeModels(models: string[] | undefined) {
+export function normalizeModels(models: string[] | undefined): string[] {
     const unique = new Set<string>();
     return (models || [])
         .map((item) => item.trim())
@@ -27,6 +27,33 @@ export function normalizeModels(models: string[] | undefined) {
             unique.add(item);
             return true;
         });
+}
+
+export function parseModelsInput(value: string): string[] {
+    return normalizeModels(value.split(/[,\n]/));
+}
+
+export function mergeModels(existing: string[] | undefined, incoming: string[]): string[] {
+    return normalizeModels([...(existing || []), ...incoming]);
+}
+
+export function replaceModel(models: string[] | undefined, original: string, next: string): string[] {
+    const source = original.trim();
+    const target = next.trim();
+    if (!source || !target) return normalizeModels(models);
+    return normalizeModels((models || []).map((item) => (item.trim() === source ? target : item)));
+}
+
+export function removeProviderModel(models: string[] | undefined, target: string): string[] {
+    const normalizedTarget = target.trim();
+    return normalizeModels((models || []).filter((item) => item.trim() !== normalizedTarget));
+}
+
+export function hasModel(models: string[] | undefined, target: string, except?: string): boolean {
+    const normalizedTarget = target.trim();
+    const normalizedExcept = except?.trim();
+    if (!normalizedTarget) return false;
+    return normalizeModels(models).some((item) => item === normalizedTarget && item !== normalizedExcept);
 }
 
 export function buildProviderOptions(config: AppConfig): ProviderOption[] {
