@@ -1,18 +1,44 @@
-# Claude Proxy
+# Claude 代理网关
 
-一个本地 Claude API 代理桌面工具，基于 `Tauri 2 + Rust + React`，支持多 Provider、多模型路由、模型级 API/Key 配置，以及基于数据目录的持久化恢复。
+一个本地 Claude API 代理桌面工具，基于 `Tauri 2 + Rust + React`。它把多个上游 Provider、模型和路由规则集中到一个本地网关里，让 Claude CLI、SDK 或其他兼容客户端统一走 `http://127.0.0.1:5055`。
+
+![活跃网关](docs/images/gateway-providers.png)
+
+![路由规则](docs/images/router-rules.png)
+
+## 界面概览
+
+### 活跃网关
+
+活跃网关用于快速选择当前全局代理节点。启用后，请求会转发到选中的 Provider，适合在不同底层服务商之间一键切换。
+
+- 显示本地代理端口与运行状态
+- 管理 Provider 代理地址、启用状态和可用模型
+- 支持为 Provider 指定可承接的模型列表
+- 支持重启服务、断开服务等常用操作
+
+### 路由规则
+
+路由规则用于按请求特征自动分派到不同 Provider / 模型，减少手动切换成本。
+
+- 默认：未命中其他分类时使用
+- 后台：适合 `haiku` 类轻量模型请求
+- 思考：适合包含 `thinking` / Plan Mode 的高推理请求
+- 长上下文：输入 token 超过阈值后切换长上下文模型
+- 图像、Web 搜索等分类在代理层按优先级识别
 
 ## 功能特性
 
 - 本地 HTTP 代理服务，拦截并转发 Claude API 请求
-- 支持按请求模型精确命中不同上游路由
+- 支持活跃网关模式，一键切换全局 Provider
+- 支持路由规则模式，按请求类型自动选择模型
+- 支持多 Provider 管理和自定义 Provider 配置
 - 支持模型级 Base URL、API Key、目标模型配置
-- 可视化配置界面，支持多个 Provider 管理和默认回退映射
+- 支持 OpenAI Chat Completions 到 Anthropic Messages 的兼容转换
 - 支持自定义 API 端点和密钥配置
-- 一键设置系统环境变量
-- 开机自启动选项
-- 实时请求日志查看
-- 支持通过 `DATA_DIR` 持久化配置，容器删除重建后可恢复
+- 支持系统托盘、开机自启动和隐藏到托盘
+- 支持实时请求日志查看和 Token 使用统计
+- 支持通过 `DATA_DIR` 持久化配置，重建环境后可恢复
 
 ## 快速开始
 
