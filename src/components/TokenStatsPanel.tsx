@@ -253,7 +253,7 @@ export default function TokenStatsPanel() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 fill-mode-both">
-            <div className="rounded-[12px] border border-[rgba(226,226,226,0.35)] bg-transparent p-6">
+            <div className="rounded-[12px] border border-border bg-transparent p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-1">
                         <h3 className="text-[24px] font-normal tracking-[0px] text-foreground">Token 统计</h3>
@@ -267,7 +267,7 @@ export default function TokenStatsPanel() {
                             variant="outline"
                             onClick={() => void loadData()}
                             disabled={loading}
-                            className="h-10 rounded-[50px] border-[rgba(226,226,226,0.35)]"
+                            className="h-10 rounded-[50px] border-border"
                         >
                             <RefreshCcw className={`mr-1.5 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                             刷新
@@ -292,7 +292,7 @@ export default function TokenStatsPanel() {
                             value={providerFilter}
                             onValueChange={(value) => setProviderFilter(value || 'all')}
                         >
-                            <SelectTrigger className="h-10 w-full rounded-[8px] border-[rgba(226,226,226,0.15)] bg-black/20 text-[14px]">
+                            <SelectTrigger className="h-10 w-full rounded-[8px] border-border/50 bg-muted/60 text-[14px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -311,7 +311,7 @@ export default function TokenStatsPanel() {
                             value={timeRange}
                             onValueChange={(value) => setTimeRange((value as TimeRange) || '24h')}
                         >
-                            <SelectTrigger className="h-10 w-full rounded-[8px] border-[rgba(226,226,226,0.15)] bg-black/20 text-[14px]">
+                            <SelectTrigger className="h-10 w-full rounded-[8px] border-border/50 bg-muted/60 text-[14px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -331,7 +331,7 @@ export default function TokenStatsPanel() {
                     { label: '输出 Token', value: summary.outputTokens, icon: TimerReset },
                     { label: '总 Token', value: summary.totalTokens, icon: BarChart3 },
                 ].map((item) => (
-                    <div key={item.label} className="rounded-[12px] border border-[rgba(226,226,226,0.35)] bg-transparent p-5">
+                    <div key={item.label} className="rounded-[12px] border border-border bg-transparent p-5">
                         <div className="flex items-center justify-between">
                             <p className="text-[13px] uppercase tracking-[1.4px] text-muted-foreground">{item.label}</p>
                             <item.icon className="h-4 w-4 text-muted-foreground" />
@@ -342,7 +342,7 @@ export default function TokenStatsPanel() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_1fr]">
-                <section className="rounded-[12px] border border-[rgba(226,226,226,0.35)] bg-transparent p-6">
+                <section className="rounded-[12px] border border-border bg-transparent p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <h3 className="text-[20px] font-normal text-foreground">Provider 汇总</h3>
@@ -353,11 +353,11 @@ export default function TokenStatsPanel() {
 
                     <div className="mt-5 space-y-3">
                         {providerSummary.length === 0 ? (
-                            <div className="rounded-[8px] border border-[rgba(226,226,226,0.15)] bg-white/[0.015] px-4 py-8 text-center text-[14px] text-muted-foreground">
+                            <div className="rounded-[8px] border border-border/50 bg-muted/20 px-4 py-8 text-center text-[14px] text-muted-foreground">
                                 当前筛选条件下暂无 token 统计。
                             </div>
                         ) : providerSummary.map((item) => (
-                            <div key={item.providerId} className="rounded-[10px] border border-[rgba(226,226,226,0.15)] bg-black/10 px-4 py-4">
+                            <div key={item.providerId} className="rounded-[10px] border border-border/50 bg-muted/30 px-4 py-4">
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="truncate text-[16px] text-foreground">{item.providerLabel || item.providerId}</p>
@@ -375,7 +375,7 @@ export default function TokenStatsPanel() {
                     </div>
                 </section>
 
-                <section className="rounded-[12px] border border-[rgba(226,226,226,0.35)] bg-transparent p-6">
+                <section className="rounded-[12px] border border-border bg-transparent p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <h3 className="text-[20px] font-normal text-foreground">最近请求</h3>
@@ -386,11 +386,11 @@ export default function TokenStatsPanel() {
 
                     <div className="mt-5 space-y-3">
                         {recentRecords.length === 0 ? (
-                            <div className="rounded-[8px] border border-[rgba(226,226,226,0.15)] bg-white/[0.015] px-4 py-8 text-center text-[14px] text-muted-foreground">
+                            <div className="rounded-[8px] border border-border/50 bg-muted/20 px-4 py-8 text-center text-[14px] text-muted-foreground">
                                 暂无 token 请求记录。
                             </div>
                         ) : recentRecords.map((record) => (
-                            <div key={`${record.requestId}_${record.timestampMs}`} className="rounded-[10px] border border-[rgba(226,226,226,0.15)] bg-black/10 px-4 py-4">
+                            <div key={`${record.requestId}_${record.timestampMs}`} className="rounded-[10px] border border-border/50 bg-muted/30 px-4 py-4">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="truncate text-[15px] text-foreground">{record.providerLabel || record.providerId}</p>

@@ -1,4 +1,4 @@
-import { DragEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { DragEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { GripVertical, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseModelsInput, mergeModels, removeProviderModel } from '@/lib/provider-options';
@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Switch } from './ui/switch';
 
 interface CustomHeader {
@@ -32,10 +33,18 @@ function normalizeProvider(provider: CustomProvider): CustomProvider {
     };
 }
 
+const SORT_LABELS: Record<string, string> = {
+    custom: '默认排序',
+    name: '按名称',
+    enabled: '按状态',
+    models: '按模型数量',
+};
+
 export default function ProviderConfig() {
     const [providers, setProviders] = useState<CustomProvider[]>([]);
     const [modelDrafts, setModelDrafts] = useState<Record<string, string>>({});
     const [draggingProviderId, setDraggingProviderId] = useState<string | null>(null);
+    const [sortBy, setSortBy] = useState<string>('custom');
     const timerRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -212,6 +221,22 @@ export default function ProviderConfig() {
         setDraggingProviderId(null);
     };
 
+    const sortedProviders = useMemo(() => {
+        const list = [...providers];
+        switch (sortBy) {
+            case 'name':
+                list.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+                break;
+            case 'enabled':
+                list.sort((a, b) => Number(b.enabled) - Number(a.enabled));
+                break;
+            case 'models':
+                list.sort((a, b) => b.models.length - a.models.length);
+                break;
+        }
+        return list;
+    }, [providers, sortBy]);
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -219,26 +244,39 @@ export default function ProviderConfig() {
                     <h3 className="text-[24px] font-normal tracking-[0px] text-foreground">自定义服务商</h3>
                     <p className="text-[18px] text-muted-foreground mt-1 leading-relaxed">用于模型路由的后端 API 服务连接</p>
                 </div>
-                <Button size="sm" variant="outline" className="border-[rgba(226,226,226,0.35)] rounded-[50px] shadow-none hover:bg-[rgba(255,255,255,0.04)]" onClick={addProvider}>
-                    <Plus className="w-3.5 h-3.5 mr-1" /> 添加
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v || 'custom')}>
+                        <SelectTrigger size="sm" className="h-8 rounded-[50px] border-border bg-transparent text-[13px] text-muted-foreground shadow-none w-[110px]">
+                            <SelectValue render={(v: any) => <span>{SORT_LABELS[v] || '默认排序'}</span>} />
+                        </SelectTrigger>
+                        <SelectContent side="bottom" align="end" className="rounded-[10px] border-border/50 bg-background min-w-[110px]">
+                            <SelectItem value="custom" className="text-[13px] cursor-pointer rounded-[6px]">默认排序</SelectItem>
+                            <SelectItem value="name" className="text-[13px] cursor-pointer rounded-[6px]">按名称</SelectItem>
+                            <SelectItem value="enabled" className="text-[13px] cursor-pointer rounded-[6px]">按状态</SelectItem>
+                            <SelectItem value="models" className="text-[13px] cursor-pointer rounded-[6px]">按模型数量</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button size="sm" variant="outline" className="border-border rounded-[50px] shadow-none hover:bg-accent" onClick={addProvider}>
+                        <Plus className="w-3.5 h-3.5 mr-1" /> 添加
+                    </Button>
+                </div>
             </div>
 
             {providers.length === 0 ? (
-                <div className="border border-[rgba(226,226,226,0.35)] rounded-[12px] py-10 flex flex-col items-center justify-center text-center">
+                <div className="border border-border rounded-[12px] py-10 flex flex-col items-center justify-center text-center">
                     <p className="text-[20px] font-normal text-foreground mb-2">尚未配置服务商</p>
                     <Button size="sm" variant="link" onClick={addProvider} className="mt-1 cursor-pointer text-muted-foreground">添加第一个服务商</Button>
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {providers.map(provider => (
+                    {sortedProviders.map(provider => (
                         <div
                             key={provider.id}
                             onDragOver={onProviderDragOver}
                             onDrop={(event) => onProviderDrop(event, provider.id)}
                             onDragEnd={onProviderDragEnd}
                             className={cn(
-                                'border border-[rgba(226,226,226,0.35)] rounded-[12px] p-6 space-y-5 bg-transparent transition-opacity',
+                                'border border-border rounded-[12px] p-6 space-y-5 bg-transparent transition-opacity',
                                 draggingProviderId === provider.id && 'opacity-55'
                             )}
                         >
@@ -257,7 +295,7 @@ export default function ProviderConfig() {
                                     value={provider.name}
                                     onChange={e => updateProvider(provider.id, 'name', e.target.value)}
                                     placeholder="服务商名称"
-                                    className="h-10 flex-1 border-[rgba(226,226,226,0.15)] bg-black/20 px-3 text-[16px] font-medium rounded-[8px] focus-visible:ring-1 focus-visible:ring-[rgba(226,226,226,0.35)]"
+                                    className="h-10 flex-1 border-border/50 bg-muted/60 px-3 text-[16px] font-medium rounded-[8px] focus-visible:ring-1 focus-visible:ring-ring"
                                 />
                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer" onClick={() => deleteProvider(provider.id)}>
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -271,7 +309,7 @@ export default function ProviderConfig() {
                                         value={provider.baseUrl}
                                         onChange={e => updateProvider(provider.id, 'baseUrl', e.target.value)}
                                         placeholder="https://api.example.com"
-                                        className="h-10 text-[14px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px]"
+                                        className="h-10 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -281,7 +319,7 @@ export default function ProviderConfig() {
                                         value={provider.apiKey}
                                         onChange={e => updateProvider(provider.id, 'apiKey', e.target.value)}
                                         placeholder="sk-..."
-                                        className="h-10 text-[14px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px]"
+                                        className="h-10 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
                                     />
                                 </div>
                             </div>
@@ -303,9 +341,9 @@ export default function ProviderConfig() {
                                         onChange={e => setModelDraft(provider.id, e.target.value)}
                                         onKeyDown={e => onModelKeyDown(e, provider.id)}
                                         placeholder="例如: claude-sonnet-4-20250514，可用逗号一次添加多个"
-                                        className="h-10 flex-1 text-[14px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px]"
+                                        className="h-10 flex-1 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
                                     />
-                                    <Button type="button" size="sm" variant="outline" className="shrink-0 h-10 px-4 border-[rgba(226,226,226,0.35)] rounded-[50px] shadow-none hover:bg-[rgba(255,255,255,0.04)]" onClick={() => addModels(provider.id)}>
+                                    <Button type="button" size="sm" variant="outline" className="shrink-0 h-10 px-4 border-border rounded-[50px] shadow-none hover:bg-accent" onClick={() => addModels(provider.id)}>
                                         <Plus className="w-3.5 h-3.5 mr-1" /> 添加模型
                                     </Button>
                                 </div>
@@ -313,7 +351,7 @@ export default function ProviderConfig() {
                                 {provider.models.length > 0 ? (
                                     <div className="flex flex-wrap gap-1.5">
                                         {provider.models.map(model => (
-                                            <Badge key={model} variant="outline" className="h-auto gap-1 rounded-[6px] px-2.5 py-1.5 font-mono text-[13px] border-[rgba(226,226,226,0.15)] bg-white/[0.02]">
+                                            <Badge key={model} variant="outline" className="h-auto gap-1 rounded-[6px] px-2.5 py-1.5 font-mono text-[13px] border-border/50 bg-muted/30">
                                                 <span>{model}</span>
                                                 <button
                                                     type="button"
@@ -327,7 +365,7 @@ export default function ProviderConfig() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="rounded-[8px] border border-[rgba(226,226,226,0.15)] bg-white/[0.015] px-4 py-5 text-[14px] text-muted-foreground">
+                                    <div className="rounded-[8px] border border-border/50 bg-muted/20 px-4 py-5 text-[14px] text-muted-foreground">
                                         暂无模型。添加后，路由页会直接复用这些模型作为目标候选。
                                     </div>
                                 )}
@@ -352,14 +390,14 @@ export default function ProviderConfig() {
                                                     value={header.name}
                                                     onChange={e => updateCustomHeader(provider.id, index, 'name', e.target.value)}
                                                     placeholder="Header 名称，例如 X-Custom-Header"
-                                                    className="h-10 flex-1 text-[14px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px]"
+                                                    className="h-10 flex-1 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
                                                 />
                                                 <span className="text-muted-foreground text-[14px]">:</span>
                                                 <Input
                                                     value={header.value}
                                                     onChange={e => updateCustomHeader(provider.id, index, 'value', e.target.value)}
                                                     placeholder="Header 值"
-                                                    className="h-10 flex-1 text-[14px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px]"
+                                                    className="h-10 flex-1 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
                                                 />
                                                 <Button
                                                     variant="ghost"
@@ -379,7 +417,7 @@ export default function ProviderConfig() {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    className="h-10 px-4 border-[rgba(226,226,226,0.35)] rounded-[50px] shadow-none hover:bg-[rgba(255,255,255,0.04)]"
+                                    className="h-10 px-4 border-border rounded-[50px] shadow-none hover:bg-accent"
                                     onClick={() => addCustomHeader(provider.id)}
                                 >
                                     <Plus className="w-3.5 h-3.5 mr-1" /> 添加请求头

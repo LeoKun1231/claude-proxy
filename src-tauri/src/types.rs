@@ -158,6 +158,12 @@ pub struct Settings {
     pub auto_launch: bool,
     #[serde(default = "default_proxy_port")]
     pub proxy_port: u16,
+    #[serde(default = "default_theme")]
+    pub theme: String,
+}
+
+fn default_theme() -> String {
+    "dark".to_string()
 }
 
 impl Default for Settings {
@@ -165,6 +171,7 @@ impl Default for Settings {
         Self {
             auto_launch: true,
             proxy_port: DEFAULT_PROXY_PORT,
+            theme: default_theme(),
         }
     }
 }

@@ -202,6 +202,11 @@ fn normalize_config_value(value: &Value) -> AppConfig {
                     .and_then(|value| value.get("proxyPort")),
             )
             .unwrap_or(DEFAULT_PROXY_PORT),
+            theme: normalize_theme(
+                merged
+                    .get("settings")
+                    .and_then(|value| value.get("theme")),
+            ),
         },
     }
 }
@@ -342,6 +347,14 @@ fn normalize_routing_mode(value: Option<&Value>) -> String {
         ROUTING_MODE_ROUTES => ROUTING_MODE_ROUTES.to_string(),
         ROUTING_MODE_GATEWAY => ROUTING_MODE_GATEWAY.to_string(),
         _ => ROUTING_MODE_GATEWAY.to_string(),
+    }
+}
+
+fn normalize_theme(value: Option<&Value>) -> String {
+    let raw = value.and_then(|item| item.as_str()).unwrap_or("").trim();
+    match raw {
+        "light" => "light".to_string(),
+        _ => "dark".to_string(),
     }
 }
 

@@ -61,7 +61,7 @@ function RoutingModeView() {
 
     return (
         <div className="space-y-6">
-            <div className="inline-flex rounded-[50px] border border-[rgba(226,226,226,0.15)] bg-white/[0.02] p-1">
+            <div className="inline-flex rounded-[50px] border border-border/50 bg-muted/30 p-1">
                 <button
                     type="button"
                     onClick={() => switchMode('gateway')}
@@ -234,7 +234,7 @@ export default function DesktopWorkbench({
 
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Premium Translucent Sidebar */}
-                <aside className="w-64 border-r border-[rgba(226,226,226,0.15)] bg-transparent flex flex-col pt-3 z-10 selection:bg-primary/30">
+                <aside className="w-64 border-r border-border/50 bg-transparent flex flex-col pt-3 z-10 selection:bg-primary/30">
                     <nav className="flex-1 space-y-1.5 px-3 overflow-y-auto">
                         <div className="px-2 pb-2 pt-2 mb-4">
                             <p className="text-[11px] font-medium uppercase tracking-[2.4px] text-muted-foreground">系统模块</p>
@@ -248,7 +248,7 @@ export default function DesktopWorkbench({
                                     'w-full flex items-center gap-3 rounded-[50px] px-4 py-2.5 text-[14px] font-medium transition-all duration-200 outline-none select-none',
                                     activeTab === item.key
                                         ? 'bg-primary text-primary-foreground'
-                                        : 'text-muted-foreground hover:bg-white/[0.04] hover:text-foreground'
+                                        : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground'
                                 )}
                             >
                                 <item.icon className={cn("h-4 w-4", activeTab === item.key ? "text-primary-foreground" : "opacity-70")} />
@@ -257,23 +257,23 @@ export default function DesktopWorkbench({
                         ))}
                     </nav>
 
-                    <div className="p-4 mt-auto border-t border-white/[0.04]">
-                        <div className="flex items-center gap-3 rounded-xl bg-black/20 p-3 shadow-inner ring-1 ring-white/[0.05]">
-                            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-white/[0.05] ring-1 ring-white/[0.1] shadow-xl">
+                    <div className="p-4 mt-auto border-t border-border/30">
+                        <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-3 shadow-inner ring-1 ring-border/30">
+                            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-muted/50 ring-1 ring-border/50 shadow-xl">
                                 {proxyStatus.running ? (
                                     <>
                                         <div className="absolute inset-0 rounded-[10px] bg-emerald-500/20 blur-md pointer-events-none" />
                                         <Activity className="h-4 w-4 text-emerald-400 z-10 relative" />
                                     </>
                                 ) : (
-                                    <Activity className="h-4 w-4 text-white/30" />
+                                    <Activity className="h-4 w-4 text-muted-foreground/30" />
                                 )}
                             </div>
                             <div className="min-w-0 pr-1">
                                 <p className="truncate text-xs font-medium leading-tight tracking-[0px] text-foreground">
                                     {proxyStatus.running ? '系统云端在线' : '网络中断离线'}
                                 </p>
-                                <p className="truncate text-[10px] leading-tight text-white/40 mt-1">
+                                <p className="truncate text-[10px] leading-tight text-muted-foreground mt-1">
                                     {proxyStatus.running ? `代理已打通端口 ${proxyStatus.port}` : '等待开启网关'}
                                 </p>
                             </div>

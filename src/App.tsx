@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import DesktopWorkbench from './components/DesktopWorkbench';
-import { useProxyStatus } from './hooks';
-import { toast } from 'sonner';
+import { useProxyStatus, useTheme } from './hooks';
+import { toast, Toaster } from 'sonner';
 
 const QUICK_COMMAND = [
     'unset ANTHROPIC_AUTH_TOKEN',
@@ -20,6 +20,7 @@ export default function App() {
         fastPollCount: 3,
         fastPollInterval: 1000,
     });
+    const { theme } = useTheme();
     const isDesktopRuntime = typeof window !== 'undefined'
         && (import.meta.env.VITE_DESKTOP_RUNTIME === 'tauri' || '__TAURI_INTERNALS__' in window);
 
@@ -99,18 +100,21 @@ export default function App() {
     }, [proxyStatus.port]);
 
     return (
-        <DesktopWorkbench
-            isDesktopRuntime={isDesktopRuntime}
-            proxyStatus={proxyStatus}
-            proxyLoading={proxyLoading}
-            onStart={handleStart}
-            onStop={handleStop}
-            onRestart={handleRestart}
-            onReleasePort={handleReleasePort}
-            onCopyProxyUrl={handleCopyProxyUrl}
-            onCopyCommand={handleCopyCommand}
-            onExport={handleExport}
-            onImport={handleImport}
-        />
+        <div className="app-theme">
+            <DesktopWorkbench
+                isDesktopRuntime={isDesktopRuntime}
+                proxyStatus={proxyStatus}
+                proxyLoading={proxyLoading}
+                onStart={handleStart}
+                onStop={handleStop}
+                onRestart={handleRestart}
+                onReleasePort={handleReleasePort}
+                onCopyProxyUrl={handleCopyProxyUrl}
+                onCopyCommand={handleCopyCommand}
+                onExport={handleExport}
+                onImport={handleImport}
+            />
+            <Toaster theme={theme} position="bottom-right" richColors />
+        </div>
     );
 }

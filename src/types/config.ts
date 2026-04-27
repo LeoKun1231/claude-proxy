@@ -98,5 +98,6 @@ export interface AppConfig {
     settings: {
         autoLaunch: boolean;
         proxyPort: number;
+        theme: 'light' | 'dark';
     };
 }

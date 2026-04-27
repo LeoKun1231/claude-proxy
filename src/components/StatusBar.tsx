@@ -12,11 +12,11 @@ interface StatusBarProps {
 
 export default function StatusBar({ status, loading, onStart, onStop, onRestart, onReleasePort }: StatusBarProps) {
     return (
-        <div className="flex items-center justify-between rounded-[12px] border border-[rgba(226,226,226,0.35)] bg-transparent p-6 relative overflow-hidden group">
+        <div className="flex items-center justify-between rounded-[12px] border border-border bg-transparent p-6 relative overflow-hidden group">
 
             
             <div className="flex items-center gap-4 relative z-10">
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-[#353534]">
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-primary">
                     {status.running ? (
                         <Activity className="h-5 w-5 text-emerald-400 z-10 relative drop-shadow-md" />
                     ) : (
@@ -52,7 +52,7 @@ export default function StatusBar({ status, loading, onStart, onStop, onRestart,
                             size="sm"
                             onClick={onReleasePort}
                             disabled={loading}
-                            className="h-10 px-5 rounded-[50px] border-[rgba(226,226,226,0.35)] bg-transparent hover:bg-[rgba(255,255,255,0.04)] text-foreground font-medium text-[15px] shadow-none"
+                            className="h-10 px-5 rounded-[50px] border-border bg-transparent hover:bg-accent text-foreground font-medium text-[15px] shadow-none"
                         >
                             <Square className="w-4 h-4 mr-2.5" />
                             结束端口占用

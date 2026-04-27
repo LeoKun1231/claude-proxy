@@ -62,15 +62,15 @@ export default function EnvConfig() {
 
             <div className="w-full space-y-2 mt-6">
                 <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-[1.4px]">API 密钥</label>
-                <Input value={apiKey} onChange={e => setApiKey(e.target.value)} className="h-10 text-[14px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px] focus-visible:ring-1 focus-visible:ring-[rgba(226,226,226,0.35)]" />
+                <Input value={apiKey} onChange={e => setApiKey(e.target.value)} className="h-10 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px] focus-visible:ring-1 focus-visible:ring-ring" />
             </div>
 
-            <div className="relative border border-[rgba(226,226,226,0.35)] rounded-[12px] bg-black/20 p-6 group">
+            <div className="relative border border-border rounded-[12px] bg-muted/60 p-6 group">
                 <pre className="text-[14px] font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed">{commands}</pre>
                 <Button
                     size="icon"
                     variant="ghost"
-                    className="absolute top-3 right-3 h-8 w-8 cursor-pointer rounded-full transition-all opacity-0 group-hover:opacity-100 bg-white/[0.05] hover:bg-white/[0.1] text-foreground"
+                    className="absolute top-3 right-3 h-8 w-8 cursor-pointer rounded-full transition-all opacity-0 group-hover:opacity-100 bg-muted/50 hover:bg-muted/60 text-foreground"
                     onClick={copy}
                 >
                     <Copy className="w-4 h-4" />
@@ -78,7 +78,7 @@ export default function EnvConfig() {
             </div>
 
             <div className="pt-2">
-                <Button size="sm" variant="outline" onClick={copy} className="h-10 px-6 rounded-[50px] border border-[rgba(226,226,226,0.35)] bg-transparent hover:bg-[rgba(255,255,255,0.04)] text-foreground text-[14px] font-medium shadow-none cursor-pointer tracking-wide">
+                <Button size="sm" variant="outline" onClick={copy} className="h-10 px-6 rounded-[50px] border border-border bg-transparent hover:bg-accent text-foreground text-[14px] font-medium shadow-none cursor-pointer tracking-wide">
                     <Copy className="w-4 h-4 mr-2" /> 复制命令
                 </Button>
             </div>

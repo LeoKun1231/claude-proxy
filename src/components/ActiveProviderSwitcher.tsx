@@ -291,7 +291,7 @@ export default function ActiveProviderSwitcher() {
             </div>
 
             {visibleProviders.length === 0 ? (
-                <div className="rounded-[12px] border border-[rgba(226,226,226,0.35)] bg-transparent p-10 flex flex-col items-center justify-center text-center">
+                <div className="rounded-[12px] border border-border bg-transparent p-10 flex flex-col items-center justify-center text-center">
                     <Server className="w-8 h-8 text-muted-foreground/50 mb-4" />
                     <p className="text-[20px] font-normal text-foreground mb-2">暂无已启用服务商</p>
                     <p className="text-[14px] text-muted-foreground">请在左侧“服务商列表”中启用至少一个服务商</p>
@@ -311,15 +311,15 @@ export default function ActiveProviderSwitcher() {
                                 className={cn(
                                     'relative flex flex-col text-left p-6 rounded-[12px] border transition-all duration-300 outline-none overflow-hidden group h-full cursor-pointer',
                                     isActive
-                                        ? 'border-[rgba(226,226,226,0.6)] bg-[rgba(255,255,255,0.04)]'
-                                        : 'border-[rgba(226,226,226,0.35)] bg-transparent hover:bg-[rgba(255,255,255,0.02)]'
+                                        ? 'border-foreground/20 bg-accent'
+                                        : 'border-border bg-transparent hover:bg-accent/50'
                                 )}
                             >
                                 <div className="flex items-start justify-between w-full mb-5 relative z-10">
                                     <div className="flex items-center gap-4">
                                         <div className={cn(
                                             'flex items-center justify-center w-12 h-12 rounded-[8px] transition-colors',
-                                            isActive ? 'bg-primary text-primary-foreground' : 'bg-[#353534] text-muted-foreground'
+                                            isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                         )}>
                                             <Server className="w-6 h-6" />
                                         </div>
@@ -351,13 +351,13 @@ export default function ActiveProviderSwitcher() {
                                 <div className="space-y-4 mt-auto relative z-10 w-full">
                                     <div className="flex items-center gap-3 text-[14px]">
                                         <span className="text-muted-foreground w-16 shrink-0 uppercase tracking-[1.4px] text-[11px]">代理地址</span>
-                                        <span className="text-foreground font-mono truncate bg-[#353534]/50 px-2.5 py-1 rounded-[6px] flex-1">
+                                        <span className="text-foreground font-mono truncate bg-primary/50 px-2.5 py-1 rounded-[6px] flex-1">
                                             {provider.baseUrl || '未配置'}
                                         </span>
                                     </div>
 
                                     <div
-                                        className="pt-4 border-t border-[rgba(226,226,226,0.15)] space-y-3"
+                                        className="pt-4 border-t border-border/50 space-y-3"
                                         onClick={(event) => event.stopPropagation()}
                                     >
                                         <div className="flex items-center justify-between gap-3">
@@ -371,13 +371,13 @@ export default function ActiveProviderSwitcher() {
                                                 onChange={event => setModelDraft(provider.id, event.target.value)}
                                                 onKeyDown={event => onModelDraftKeyDown(event, provider.id)}
                                                 placeholder="添加模型，可用逗号或换行一次添加多个"
-                                                className="h-9 flex-1 text-[13px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px]"
+                                                className="h-9 flex-1 text-[13px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
                                             />
                                             <Button
                                                 type="button"
                                                 size="sm"
                                                 variant="outline"
-                                                className="h-9 shrink-0 px-3 border-[rgba(226,226,226,0.35)] rounded-[50px] shadow-none hover:bg-[rgba(255,255,255,0.04)]"
+                                                className="h-9 shrink-0 px-3 border-border rounded-[50px] shadow-none hover:bg-accent"
                                                 onClick={() => addModels(provider.id)}
                                             >
                                                 <Plus className="w-3.5 h-3.5 mr-1" /> 添加
@@ -392,7 +392,7 @@ export default function ActiveProviderSwitcher() {
 
                                                     if (isEditing) {
                                                         return (
-                                                            <div key={model} className="flex items-center gap-1 rounded-[6px] border border-[rgba(226,226,226,0.25)] bg-black/30 px-1.5 py-1">
+                                                            <div key={model} className="flex items-center gap-1 rounded-[6px] border border-border/70 bg-muted/80 px-1.5 py-1">
                                                                 <Input
                                                                     autoFocus
                                                                     value={editingModel.value}
@@ -433,7 +433,7 @@ export default function ActiveProviderSwitcher() {
                                                                 'inline-flex items-center overflow-hidden rounded-[6px] border transition-all',
                                                                 isModelActive
                                                                     ? 'border-primary bg-primary text-primary-foreground'
-                                                                    : 'border-[rgba(226,226,226,0.15)] bg-[#353534]/30 text-muted-foreground hover:bg-[#353534]'
+                                                                    : 'border-border/50 bg-muted/50 text-muted-foreground hover:bg-primary hover:text-primary-foreground'
                                                             )}
                                                         >
                                                             <button
@@ -450,7 +450,7 @@ export default function ActiveProviderSwitcher() {
                                                                     'border-l px-1.5 py-1.5 transition-colors',
                                                                     isModelActive
                                                                         ? 'border-primary-foreground/20 text-primary-foreground/80 hover:text-primary-foreground'
-                                                                        : 'border-[rgba(226,226,226,0.12)] text-muted-foreground hover:text-foreground'
+                                                                        : 'border-border/40 text-muted-foreground hover:text-foreground'
                                                                 )}
                                                                 aria-label={`编辑模型 ${model}`}
                                                             >
@@ -463,7 +463,7 @@ export default function ActiveProviderSwitcher() {
                                                                     'border-l px-1.5 py-1.5 transition-colors',
                                                                     isModelActive
                                                                         ? 'border-primary-foreground/20 text-primary-foreground/80 hover:text-primary-foreground'
-                                                                        : 'border-[rgba(226,226,226,0.12)] text-muted-foreground hover:text-destructive'
+                                                                        : 'border-border/40 text-muted-foreground hover:text-destructive'
                                                                 )}
                                                                 aria-label={`删除模型 ${model}`}
                                                             >
@@ -474,7 +474,7 @@ export default function ActiveProviderSwitcher() {
                                                 })}
                                             </div>
                                         ) : (
-                                            <div className="rounded-[8px] border border-[rgba(226,226,226,0.15)] bg-white/[0.015] px-3 py-3 text-[13px] text-muted-foreground">
+                                            <div className="rounded-[8px] border border-border/50 bg-muted/20 px-3 py-3 text-[13px] text-muted-foreground">
                                                 暂无模型。未选择具体模型时，将按通配路由转发到当前服务商。
                                             </div>
                                         )}

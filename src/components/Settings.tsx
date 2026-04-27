@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Cable, Rocket } from 'lucide-react';
+import { Cable, Moon, Rocket, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
+import { useTheme } from '@/hooks';
 import { DEFAULT_PROXY_PORT } from '@/types/config';
 
 export default function AppSettings() {
@@ -13,6 +14,7 @@ export default function AppSettings() {
     const [proxyRunning, setProxyRunning] = useState(false);
     const [loadingAutoLaunch, setLoadingAutoLaunch] = useState(false);
     const [loadingProxyPort, setLoadingProxyPort] = useState(false);
+    const { theme, setTheme } = useTheme();
 
     const loadSettings = useCallback(async () => {
         try {
@@ -117,7 +119,7 @@ export default function AppSettings() {
                 <p className="text-[18px] text-muted-foreground mt-1 leading-relaxed">桌面应用偏好设置</p>
             </div>
 
-            <div className="flex items-center justify-between border border-[rgba(226,226,226,0.35)] rounded-[12px] p-6 bg-transparent">
+            <div className="flex items-center justify-between border border-border rounded-[12px] p-6 bg-transparent">
                 <div className="flex items-center gap-4">
                     <Rocket className="w-5 h-5 text-muted-foreground" />
                     <div>
@@ -128,7 +130,25 @@ export default function AppSettings() {
                 <Switch checked={autoLaunch} onCheckedChange={toggle} disabled={loadingAutoLaunch} />
             </div>
 
-            <div className="border border-[rgba(226,226,226,0.35)] rounded-[12px] p-6 bg-transparent space-y-4">
+            <div className="flex items-center justify-between border border-border rounded-[12px] p-6 bg-transparent">
+                <div className="flex items-center gap-4">
+                    {theme === 'dark' ? (
+                        <Moon className="w-5 h-5 text-muted-foreground" />
+                    ) : (
+                        <Sun className="w-5 h-5 text-muted-foreground" />
+                    )}
+                    <div>
+                        <p className="text-[16px] font-medium text-foreground tracking-tight">亮色主题</p>
+                        <p className="text-[14px] text-muted-foreground mt-0.5">切换应用亮色 / 暗色外观</p>
+                    </div>
+                </div>
+                <Switch
+                    checked={theme === 'light'}
+                    onCheckedChange={(checked) => setTheme(checked ? 'light' : 'dark')}
+                />
+            </div>
+
+            <div className="border border-border rounded-[12px] p-6 bg-transparent space-y-4">
                 <div className="flex items-start gap-4">
                     <Cable className="w-5 h-5 text-muted-foreground mt-0.5" />
                     <div className="min-w-0 flex-1">
@@ -152,7 +172,7 @@ export default function AppSettings() {
                             value={proxyPortDraft}
                             onChange={(event) => setProxyPortDraft(event.target.value)}
                             placeholder={String(DEFAULT_PROXY_PORT)}
-                            className="h-10 text-[14px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px]"
+                            className="h-10 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
                         />
                         <p className="text-[12px] text-muted-foreground leading-relaxed">
                             {proxyPortHint}
@@ -162,7 +182,7 @@ export default function AppSettings() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-10 px-5 border-[rgba(226,226,226,0.35)] rounded-[50px] shadow-none hover:bg-[rgba(255,255,255,0.04)]"
+                        className="h-10 px-5 border-border rounded-[50px] shadow-none hover:bg-accent"
                         disabled={!proxyPortChanged || !isProxyPortValid || loadingProxyPort}
                         onClick={saveProxyPort}
                     >

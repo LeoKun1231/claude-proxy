@@ -63,7 +63,7 @@ const LogEntry = memo(({ log }: { log: LogItem }) => (
             {(log.providerLabel || log.model || log.routeKind || log.requestId) && (
                 <div className="mb-1 flex flex-wrap gap-1.5">
                     {log.providerLabel && (
-                        <Badge variant="outline" className="h-5 rounded-[6px] border-[rgba(226,226,226,0.14)] bg-white/[0.03] px-2 text-[11px] font-medium text-foreground/85">
+                        <Badge variant="outline" className="h-5 rounded-[6px] border-border/40 bg-muted/40 px-2 text-[11px] font-medium text-foreground/85">
                             服务: {log.providerLabel}
                         </Badge>
                     )}
@@ -78,7 +78,7 @@ const LogEntry = memo(({ log }: { log: LogItem }) => (
                         </Badge>
                     )}
                     {log.requestId && (
-                        <Badge variant="outline" className="h-5 rounded-[6px] border-[rgba(226,226,226,0.14)] bg-white/[0.03] px-2 text-[11px] font-medium text-muted-foreground">
+                        <Badge variant="outline" className="h-5 rounded-[6px] border-border/40 bg-muted/40 px-2 text-[11px] font-medium text-muted-foreground">
                             请求: {log.requestId.slice(-8)}
                         </Badge>
                     )}
@@ -128,16 +128,16 @@ export default function LogViewer({ logs, paused, onTogglePause, onClear }: LogV
     }, []);
 
     return (
-        <div className="flex h-[min(72vh,760px)] min-h-[520px] min-w-0 flex-col overflow-hidden rounded-[12px] border border-[rgba(226,226,226,0.35)]">
+        <div className="flex h-[min(72vh,760px)] min-h-[520px] min-w-0 flex-col overflow-hidden rounded-[12px] border border-border">
             {/* Toolbar */}
-            <div className="flex shrink-0 items-center justify-between border-b border-[rgba(226,226,226,0.15)] bg-black/10 px-4 py-3">
+            <div className="flex shrink-0 items-center justify-between border-b border-border/50 bg-muted/30 px-4 py-3">
                 <div className="flex gap-2">
                     {(['all', 'info', 'warn', 'error'] as const).map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`px-4 py-1.5 rounded-[50px] text-[12px] font-medium uppercase tracking-[1.4px] cursor-pointer transition-colors ${
-                                filter === f ? 'bg-[#353534] text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.04]'
+                                filter === f ? 'bg-primary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                             }`}
                         >
                             {f}{' '}{f === 'all' ? counts.total : counts[f]}
@@ -145,7 +145,7 @@ export default function LogViewer({ logs, paused, onTogglePause, onClear }: LogV
                     ))}
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer rounded-full transition-colors hover:bg-[#353534]" onClick={onTogglePause}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer rounded-full transition-colors hover:bg-primary" onClick={onTogglePause}>
                         {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer rounded-full transition-colors hover:text-destructive hover:bg-destructive/10" onClick={onClear}>

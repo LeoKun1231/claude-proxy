@@ -203,7 +203,7 @@ export default function RouterConfigPanel() {
     if (!config) return null;
 
     return (
-        <div className="rounded-[12px] border border-[rgba(226,226,226,0.35)] p-6 bg-transparent space-y-5">
+        <div className="rounded-[12px] border border-border p-6 bg-transparent space-y-5">
             <div className="space-y-1.5">
                 <h3 className="text-[20px] font-normal tracking-tight text-foreground">路由</h3>
                 <p className="text-[14px] text-muted-foreground leading-relaxed">
@@ -228,11 +228,11 @@ export default function RouterConfigPanel() {
                     return (
                         <div
                             key={meta.key}
-                            className="space-y-3 rounded-[10px] border border-[rgba(226,226,226,0.12)] bg-white/[0.015] p-4"
+                            className="space-y-3 rounded-[10px] border border-border/40 bg-muted/20 p-4"
                         >
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-start gap-3 min-w-0">
-                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-white/[0.04] text-muted-foreground">
+                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-muted/30 text-muted-foreground">
                                         <Icon className="h-4 w-4" />
                                     </div>
                                     <div className="min-w-0 space-y-1">
@@ -254,7 +254,7 @@ export default function RouterConfigPanel() {
                                     value={hasCurrentInList ? currentValue : EMPTY_OPTION}
                                     onValueChange={(value) => void handleSelectCombo(meta.key, value)}
                                 >
-                                    <SelectTrigger className="h-10 w-full rounded-[8px] border-[rgba(226,226,226,0.15)] bg-black/20 text-[14px]">
+                                    <SelectTrigger className="h-10 w-full rounded-[8px] border-border/50 bg-muted/60 text-[14px]">
                                         <SelectValue placeholder="没有选择">
                                             {currentDisplayLabel}
                                         </SelectValue>
@@ -285,7 +285,7 @@ export default function RouterConfigPanel() {
                                         min={1}
                                         value={router.longContextThreshold}
                                         onChange={(event) => void updateThreshold(event.target.value)}
-                                        className="h-10 text-[14px] font-mono bg-black/20 border-[rgba(226,226,226,0.15)] rounded-[8px]"
+                                        className="h-10 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
                                     />
                                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                                         估算 input 超过该值时命中长上下文分类。默认 60000。
