@@ -441,7 +441,7 @@ impl ProxyManager {
             );
         }
 
-        let needs_1m_beta = provider.model_name.to_lowercase().contains("[1m]");
+        let needs_1m_beta = should_apply_anthropic_1m_beta(&provider);
         if needs_1m_beta {
             provider.model_name = strip_1m_suffix(&provider.model_name);
         }
@@ -804,6 +804,11 @@ fn provider_has_model(models: &[String], model: &str) -> bool {
             .any(|item| normalize_route_match_model(item) == target)
 }
 
+fn should_apply_anthropic_1m_beta(provider: &ResolvedProviderConfig) -> bool {
+    provider.model_name.to_lowercase().contains("[1m]")
+        && provider.base_url.to_lowercase().contains("api.anthropic.com")
+}
+
 fn strip_1m_suffix(model: &str) -> String {
     model
         .replace("[1m]", "")
@@ -1149,17 +1154,10 @@ async fn proxy_handler(
         }
     };
 
-    // `[1m]` 后缀处理：虚拟变体，剥离后发上游，并在 anthropic-beta 注入 context-1m-2025-08-07。
-    // new-api 不认识带 [1m] 的模型名，会 nil 指针 panic。
-    let needs_1m_beta = provider.model_name.to_lowercase().contains("[1m]");
+    // `[1m]` 只作为直连 Anthropic 1M beta 的本地虚拟后缀；自定义网关模型名需原样透传。
+    let needs_1m_beta = should_apply_anthropic_1m_beta(&provider);
     if needs_1m_beta {
-        let cleaned = provider
-            .model_name
-            .replace("[1m]", "")
-            .replace("[1M]", "")
-            .trim()
-            .to_string();
-        provider.model_name = cleaned;
+        provider.model_name = strip_1m_suffix(&provider.model_name);
     }
 
     let route_kind = resolution_source_to_route_kind(provider.resolution_source);
