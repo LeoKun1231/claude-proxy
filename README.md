@@ -1,6 +1,6 @@
 # Claude Proxy
 
-当前版本：`1.0.1`
+当前版本：`1.0.2`
 
 一个本地 Claude API 代理桌面工具，基于 `Tauri 2 + Rust + React`。它把多个上游 Provider、模型和路由规则集中到一个本地网关里，让 Claude CLI、SDK 或其他兼容客户端统一走 `http://127.0.0.1:5055`。
 
