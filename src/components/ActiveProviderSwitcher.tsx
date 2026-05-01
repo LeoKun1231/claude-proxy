@@ -759,7 +759,7 @@ export default function ActiveProviderSwitcher() {
                         const isLastGroup = groupIndex === visibleModelGroups.length - 1;
 
                         return (
-                            <section key={group.model} className="group/group overflow-hidden rounded-[20px] border border-border/40 bg-gradient-to-br from-card/40 to-transparent p-1 transition-all duration-300 hover:border-primary/20 hover:shadow-[0_4px_30px_rgba(0,0,0,0.1)] backdrop-blur-md">
+                            <section key={group.model} className="group/group overflow-hidden rounded-[20px] border border-border/40 bg-gradient-to-br from-card/80 to-background/50 p-1 transition-all duration-300 hover:border-primary/30 hover:shadow-[0_4px_30px_rgba(0,0,0,0.2)] backdrop-blur-md">
                                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/30 px-4 pb-3 pt-3">
                                     <div className="flex min-w-0 flex-col items-start gap-1">
                                         <div className="flex items-center gap-2">
@@ -841,8 +841,8 @@ export default function ActiveProviderSwitcher() {
                                                     isActive 
                                                         ? 'border-primary/30 bg-primary/5 shadow-[0_0_15px_rgba(6,182,212,0.05)]' 
                                                         : expanded
-                                                            ? 'border-border/50 bg-muted/10'
-                                                            : 'border-transparent hover:bg-muted/30 hover:border-border/30'
+                                                            ? 'border-border/50 bg-muted/30'
+                                                            : 'border-transparent hover:bg-muted/40 hover:border-border/40 bg-card/30'
                                                 )}>
                                                     <div className="flex items-center gap-3 px-3 py-3 relative">
                                                         {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(6,182,212,0.5)]"></div>}

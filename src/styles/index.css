@@ -35,29 +35,29 @@
   .dark {
     --background: #09090B; /* Deep sophisticated slate-black */
     --foreground: #FAFAFA; /* Off-white for crisp text */
-    --card: #0F0F12;       /* Very dark floating cards */
+    --card: #18181B;       /* Very dark floating cards */
     --card-foreground: #FAFAFA;
-    --popover: #0F0F12;
+    --popover: #18181B;
     --popover-foreground: #FAFAFA;
     
     /* Neon Cyan / Glacier Blue accent - Very modern and tech-forward, avoiding indigo/purple */
     --primary: #06B6D4;
     --primary-foreground: #000000;
     
-    --secondary: #18181B;
+    --secondary: #27272A;
     --secondary-foreground: #FAFAFA;
-    --muted: #18181B;
+    --muted: #27272A;
     --muted-foreground: #A1A1AA;
-    --accent: #1F1F24;
+    --accent: #27272A;
     --accent-foreground: #FAFAFA;
     --destructive: #F87171;
     --destructive-foreground: #000000;
-    --border: #27272A;
-    --input: #27272A;
+    --border: #3F3F46;
+    --input: #3F3F46;
     --ring: #06B6D4;
-    --sidebar: #09090B;
+    --sidebar: #0F0F12;
     --sidebar-foreground: #FAFAFA;
-    --sidebar-border: #18181B;
+    --sidebar-border: #27272A;
   }
 }
 
