@@ -228,6 +228,7 @@ pub fn run() {
             commands::release_port_process,
             commands::import_config,
             commands::export_config,
+            commands::export_token_usage_csv,
             commands::clear_logs,
             commands::get_logs,
             commands::get_token_usage_records,

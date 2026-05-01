@@ -35,7 +35,6 @@ use crate::{
 
 const UPSTREAM_TIMEOUT_MS: u64 = 120_000;
 const MAX_PROXY_LOGS: usize = 500;
-const MAX_TOKEN_RECORDS: usize = 10_000;
 const DOCKER_HOST_ALIAS: &str = "host.docker.internal";
 
 #[derive(Clone)]
@@ -179,10 +178,6 @@ impl ProxyManager {
         };
         if let Ok(mut guard) = self.token_records.lock() {
             guard.push(record);
-            if guard.len() > MAX_TOKEN_RECORDS {
-                let overflow = guard.len() - MAX_TOKEN_RECORDS;
-                guard.drain(0..overflow);
-            }
             if let Err(err) = persist_token_records(&self.token_records_path, &guard) {
                 self.emit_log("error", format!("持久化 token 统计失败: {err}"));
             }
@@ -1065,9 +1060,7 @@ fn load_token_records(path: &Path) -> Vec<TokenUsageRecord> {
         return Vec::new();
     };
 
-    serde_json::from_str::<Vec<TokenUsageRecord>>(&raw)
-        .map(trim_token_records)
-        .unwrap_or_default()
+    serde_json::from_str::<Vec<TokenUsageRecord>>(&raw).unwrap_or_default()
 }
 
 fn persist_token_records(path: &Path, records: &[TokenUsageRecord]) -> Result<(), String> {
@@ -1076,14 +1069,6 @@ fn persist_token_records(path: &Path, records: &[TokenUsageRecord]) -> Result<()
     }
     let raw = serde_json::to_string_pretty(records).map_err(|err| err.to_string())?;
     fs::write(path, raw).map_err(|err| err.to_string())
-}
-
-fn trim_token_records(mut records: Vec<TokenUsageRecord>) -> Vec<TokenUsageRecord> {
-    if records.len() > MAX_TOKEN_RECORDS {
-        let overflow = records.len() - MAX_TOKEN_RECORDS;
-        records.drain(0..overflow);
-    }
-    records
 }
 
 async fn proxy_handler(

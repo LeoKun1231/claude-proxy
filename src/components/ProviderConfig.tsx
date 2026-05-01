@@ -43,6 +43,11 @@ interface FetchModelsState {
     latencyMs?: number;
 }
 
+interface RemoteModelsDraft {
+    models: string[];
+    selectedModels: string[];
+}
+
 function createTestKey(providerId: string, model: string) {
     return `${providerId}::${model}`;
 }
@@ -54,14 +59,11 @@ function summarizeTestResult(result: TestProviderModelResponse) {
     return result.error?.trim() || '测试失败';
 }
 
-function summarizeFetchResult(result: FetchProviderModelsResponse, addedCount: number) {
+function summarizeFetchResult(result: FetchProviderModelsResponse) {
     if (!result.ok) {
         return result.error?.trim() || '获取模型失败';
     }
-    if (addedCount > 0) {
-        return `已获取 ${result.models.length} 个模型，新增 ${addedCount} 个`;
-    }
-    return `远程返回 ${result.models.length} 个模型，均已存在`;
+    return `已获取 ${result.models.length} 个模型，请选择要添加的模型`;
 }
 
 function normalizeProvider(provider: CustomProvider): CustomProvider {
@@ -89,6 +91,7 @@ export default function ProviderConfig() {
     const [testPromptDrafts, setTestPromptDrafts] = useState<Record<string, string>>({});
     const [testStates, setTestStates] = useState<Record<string, TestState>>({});
     const [fetchModelStates, setFetchModelStates] = useState<Record<string, FetchModelsState>>({});
+    const [remoteModelDrafts, setRemoteModelDrafts] = useState<Record<string, RemoteModelsDraft>>({});
     const timerRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -252,6 +255,11 @@ export default function ProviderConfig() {
             delete next[id];
             return next;
         });
+        setRemoteModelDrafts(prev => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
         toast.success('服务商已移除');
     };
 
@@ -295,6 +303,11 @@ export default function ProviderConfig() {
 
     const fetchRemoteModels = async (provider: CustomProvider) => {
         setFetchModelStates(prev => ({ ...prev, [provider.id]: { status: 'loading' } }));
+        setRemoteModelDrafts(prev => {
+            const next = { ...prev };
+            delete next[provider.id];
+            return next;
+        });
         try {
             const api = window.electronAPI;
             if (!api?.fetchProviderModels) {
@@ -306,24 +319,23 @@ export default function ProviderConfig() {
             }
             await api.setConfig('providers.customProviders', providers);
             const result = await api.fetchProviderModels({ providerId: provider.id });
-            let addedCount = 0;
-            let nextProviders = providers;
             if (result.ok) {
-                nextProviders = providers.map(item => {
-                    if (item.id !== provider.id) return item;
-                    const merged = mergeModels(item.models, result.models);
-                    addedCount = merged.length - item.models.length;
-                    return { ...item, models: merged };
-                });
-                setProviders(nextProviders);
-                await api.setConfig('providers.customProviders', nextProviders);
-                toast.success(summarizeFetchResult(result, addedCount));
+                const existingModels = new Set(provider.models);
+                const selectedModels = result.models.filter(model => !existingModels.has(model));
+                setRemoteModelDrafts(prev => ({
+                    ...prev,
+                    [provider.id]: {
+                        models: result.models,
+                        selectedModels: selectedModels.length > 0 ? selectedModels : result.models,
+                    },
+                }));
+                toast.success(summarizeFetchResult(result));
             }
             setFetchModelStates(prev => ({
                 ...prev,
                 [provider.id]: {
                     status: result.ok ? 'success' : 'error',
-                    message: summarizeFetchResult(result, addedCount),
+                    message: summarizeFetchResult(result),
                     latencyMs: result.latencyMs,
                 },
             }));
@@ -336,6 +348,70 @@ export default function ProviderConfig() {
                 },
             }));
         }
+    };
+
+    const toggleRemoteModel = (providerId: string, model: string) => {
+        setRemoteModelDrafts(prev => {
+            const draft = prev[providerId];
+            if (!draft) return prev;
+            const selected = new Set(draft.selectedModels);
+            if (selected.has(model)) {
+                selected.delete(model);
+            } else {
+                selected.add(model);
+            }
+            return {
+                ...prev,
+                [providerId]: {
+                    ...draft,
+                    selectedModels: draft.models.filter(item => selected.has(item)),
+                },
+            };
+        });
+    };
+
+    const selectRemoteModels = (provider: CustomProvider, mode: 'all' | 'new' | 'none') => {
+        setRemoteModelDrafts(prev => {
+            const draft = prev[provider.id];
+            if (!draft) return prev;
+            const existingModels = new Set(provider.models);
+            const selectedModels = mode === 'all'
+                ? draft.models
+                : mode === 'new'
+                    ? draft.models.filter(model => !existingModels.has(model))
+                    : [];
+            return {
+                ...prev,
+                [provider.id]: {
+                    ...draft,
+                    selectedModels,
+                },
+            };
+        });
+    };
+
+    const applyRemoteModels = (provider: CustomProvider, mode: 'append' | 'replace') => {
+        const draft = remoteModelDrafts[provider.id];
+        if (!draft || draft.selectedModels.length === 0) return;
+        const selectedSet = new Set(draft.selectedModels);
+        const selectedModels = draft.models.filter(model => selectedSet.has(model));
+        setProviders(prev => {
+            const next = prev.map(item => {
+                if (item.id !== provider.id) return item;
+                return {
+                    ...item,
+                    models: mode === 'append' ? mergeModels(item.models, selectedModels) : selectedModels,
+                };
+            });
+            queueSave(next);
+            return next;
+        });
+        setRemoteModelDrafts(prev => {
+            const next = { ...prev };
+            delete next[provider.id];
+            return next;
+        });
+        toast.success(mode === 'append' ? `已添加 ${selectedModels.length} 个模型` : `已替换为 ${selectedModels.length} 个模型`);
     };
 
     const moveProvider = (fromId: string, toId: string) => {
@@ -461,6 +537,11 @@ export default function ProviderConfig() {
                                     : '';
                         const disableTest = testState.status === 'loading' || Boolean(testDisabledReason);
                         const fetchModelState = fetchModelStates[provider.id] || { status: 'idle' as const };
+                        const remoteModelDraft = remoteModelDrafts[provider.id];
+                        const remoteSelectedModels = remoteModelDraft?.selectedModels || [];
+                        const remoteSelectedSet = new Set(remoteSelectedModels);
+                        const providerModelSet = new Set(provider.models);
+                        const remoteNewCount = remoteModelDraft?.models.filter(model => !providerModelSet.has(model)).length || 0;
                         const fetchModelsDisabledReason = !provider.baseUrl ? '未配置代理地址，无法获取模型。' : '';
                         const disableFetchModels = fetchModelState.status === 'loading' || Boolean(fetchModelsDisabledReason);
 
@@ -612,6 +693,74 @@ export default function ProviderConfig() {
                                         {fetchModelState.latencyMs !== undefined ? (
                                             <span className="ml-2 font-mono text-[12px] opacity-75">{fetchModelState.latencyMs}ms</span>
                                         ) : null}
+                                    </div>
+                                ) : null}
+
+                                {remoteModelDraft ? (
+                                    <div className="rounded-xl border border-border/40 bg-background/40 p-3 space-y-3">
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                            <div>
+                                                <p className="text-[12px] font-semibold text-foreground">远程模型选择</p>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    共 {remoteModelDraft.models.length} 个，新增 {remoteNewCount} 个，已选 {remoteSelectedModels.length} 个
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => selectRemoteModels(provider, 'all')}>全选</Button>
+                                                <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={() => selectRemoteModels(provider, 'new')}>只选新增</Button>
+                                                <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => selectRemoteModels(provider, 'none')}>清空</Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="max-h-48 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
+                                            {remoteModelDraft.models.map(model => {
+                                                const selected = remoteSelectedSet.has(model);
+                                                const exists = providerModelSet.has(model);
+                                                return (
+                                                    <button
+                                                        key={model}
+                                                        type="button"
+                                                        aria-pressed={selected}
+                                                        onClick={() => toggleRemoteModel(provider.id, model)}
+                                                        className={cn(
+                                                            'flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left font-mono text-[12px] transition-colors',
+                                                            selected
+                                                                ? 'border-primary/40 bg-primary/10 text-foreground'
+                                                                : 'border-border/40 bg-muted/10 text-muted-foreground hover:border-border/80 hover:bg-muted/30'
+                                                        )}
+                                                    >
+                                                        <Icon icon={selected ? 'ph:check-square-bold' : 'ph:square-bold'} className={cn('h-4 w-4 shrink-0', selected ? 'text-primary' : 'text-muted-foreground/60')} />
+                                                        <span className="min-w-0 flex-1 truncate">{model}</span>
+                                                        <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px]', exists ? 'bg-muted/50 text-muted-foreground' : 'bg-emerald-500/10 text-emerald-300')}>
+                                                            {exists ? '已存在' : '新增'}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-8 px-3 text-[12px]"
+                                                disabled={remoteSelectedModels.length === 0}
+                                                onClick={() => applyRemoteModels(provider, 'append')}
+                                            >
+                                                追加所选
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-8 px-3 text-[12px] border-destructive/30 text-destructive hover:bg-destructive/10"
+                                                disabled={remoteSelectedModels.length === 0}
+                                                onClick={() => applyRemoteModels(provider, 'replace')}
+                                            >
+                                                替换为所选
+                                            </Button>
+                                        </div>
                                     </div>
                                 ) : null}
                             </div>

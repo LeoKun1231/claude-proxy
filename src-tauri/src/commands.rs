@@ -491,6 +491,47 @@ pub async fn export_config(state: State<'_, DesktopState>) -> Result<String, Str
 }
 
 #[tauri::command]
+pub async fn export_token_usage_csv(
+    state: State<'_, DesktopState>,
+    csv: String,
+    file_name: String,
+) -> Result<String, String> {
+    let trimmed_name = file_name.trim();
+    let normalized_name = if trimmed_name.is_empty() {
+        format!(
+            "claude-proxy-token-usage-{}.csv",
+            chrono::Local::now().format("%Y%m%d-%H%M%S"),
+        )
+    } else if trimmed_name.to_lowercase().ends_with(".csv") {
+        trimmed_name.to_string()
+    } else {
+        format!("{trimmed_name}.csv")
+    };
+
+    let (tx, rx) = oneshot::channel();
+    state
+        .app_handle
+        .dialog()
+        .file()
+        .add_filter("CSV", &["csv"])
+        .set_title("导出 Token 统计 CSV")
+        .set_file_name(normalized_name)
+        .save_file(move |file_path| {
+            let _ = tx.send(file_path);
+        });
+
+    let file_path = rx
+        .await
+        .map_err(|_| "保存对话框已关闭".to_string())?
+        .ok_or_else(|| "已取消".to_string())?
+        .into_path()
+        .map_err(|err| format!("无法写入所选路径: {err}"))?;
+
+    std::fs::write(&file_path, csv).map_err(|err| format!("写入 CSV 文件失败: {err}"))?;
+    Ok(file_path.display().to_string())
+}
+
+#[tauri::command]
 pub async fn clear_logs(state: State<'_, DesktopState>) -> Result<bool, String> {
     state.proxy_manager.clear_logs().await;
     Ok(true)

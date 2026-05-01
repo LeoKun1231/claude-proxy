@@ -150,7 +150,7 @@ function csvCell(value: string | number) {
     return `"${text.replace(/"/g, '""')}"`;
 }
 
-function exportCsv(records: TokenUsageRecord[]) {
+function buildTokenUsageCsv(records: TokenUsageRecord[]) {
     const header = ['timestamp', 'requestId', 'providerId', 'providerLabel', 'model', 'inputTokens', 'outputTokens', 'totalTokens'];
     const rows = records.map(record => [
         record.timestamp,
@@ -166,11 +166,18 @@ function exportCsv(records: TokenUsageRecord[]) {
         .map(row => row.map(csvCell).join(','))
         .join('\n');
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    return {
+        csv: `\uFEFF${csv}`,
+        fileName: `claude-proxy-token-usage-${stamp}.csv`,
+    };
+}
+
+function downloadCsvInBrowser(csv: string, fileName: string) {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `claude-proxy-token-usage-${stamp}.csv`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -253,7 +260,7 @@ export default function TokenStatsPanel() {
                     && item.timestamp === nextRecord.timestamp
                 );
                 if (exists) return current;
-                return [nextRecord, ...current].slice(0, 10000);
+                return [nextRecord, ...current];
             });
         };
 
@@ -369,13 +376,28 @@ export default function TokenStatsPanel() {
         }
     }, []);
 
-    const handleExportCsv = useCallback(() => {
+    const handleExportCsv = useCallback(async () => {
         if (filteredRecords.length === 0) {
             toast.info('当前筛选条件下没有可导出的 token 记录');
             return;
         }
-        exportCsv(filteredRecords);
-        toast.success('CSV 已导出');
+
+        const { csv, fileName } = buildTokenUsageCsv(filteredRecords);
+        try {
+            if (window.electronAPI.exportTokenUsageCsv) {
+                const result = await window.electronAPI.exportTokenUsageCsv(csv, fileName);
+                if (!result.success) {
+                    throw new Error(result.error || 'CSV 导出失败');
+                }
+                toast.success(result.path ? `CSV 已导出：${result.path}` : 'CSV 已导出');
+                return;
+            }
+
+            downloadCsvInBrowser(csv, fileName);
+            toast.success('CSV 已导出');
+        } catch (error: any) {
+            toast.error(error?.message || 'CSV 导出失败');
+        }
     }, [filteredRecords]);
 
     return (

@@ -156,9 +156,8 @@ function emitBrowserConfigUpdated(key: string) {
     configUpdatedCallbacks.forEach(callback => callback(payload));
 }
 
-function downloadBrowserConfig() {
-    const fileName = `claude-proxy-config-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`;
-    const blob = new Blob([JSON.stringify(getBrowserConfig(), null, 2)], { type: 'application/json' });
+function downloadBrowserFile(fileName: string, content: string, type: string) {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -168,6 +167,11 @@ function downloadBrowserConfig() {
     link.remove();
     URL.revokeObjectURL(url);
     return fileName;
+}
+
+function downloadBrowserConfig() {
+    const fileName = `claude-proxy-config-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`;
+    return downloadBrowserFile(fileName, JSON.stringify(getBrowserConfig(), null, 2), 'application/json');
 }
 
 function pickBrowserConfigFile(): Promise<string> {
@@ -287,6 +291,13 @@ function createBrowserAPI() {
                 return { success: true, path: downloadBrowserConfig() };
             } catch (error: any) {
                 return { success: false, error: error?.message || '导出失败' };
+            }
+        },
+        async exportTokenUsageCsv(csv: string, fileName: string) {
+            try {
+                return { success: true, path: downloadBrowserFile(fileName, csv, 'text/csv;charset=utf-8') };
+            } catch (error: any) {
+                return { success: false, error: error?.message || 'CSV 导出失败' };
             }
         },
         async importConfig() {
@@ -432,6 +443,14 @@ function createDesktopAPI() {
                 return { success: true, path };
             } catch (error: any) {
                 return { success: false, error: error?.message || '导出失败' };
+            }
+        },
+        async exportTokenUsageCsv(csv: string, fileName: string) {
+            try {
+                const path = await invoke<string>('export_token_usage_csv', { csv, fileName });
+                return { success: true, path };
+            } catch (error: any) {
+                return { success: false, error: error?.message || 'CSV 导出失败' };
             }
         },
         async importConfig() {

@@ -43,6 +43,7 @@ interface ElectronAPI {
         message: string;
     }>;
     exportConfig: () => Promise<{ success: boolean; path?: string; error?: string }>;
+    exportTokenUsageCsv?: (csv: string, fileName: string) => Promise<{ success: boolean; path?: string; error?: string }>;
     importConfig: () => Promise<{ success: boolean; path?: string; error?: string }>;
     getLogs?: () => Promise<Array<{
         message: string;
