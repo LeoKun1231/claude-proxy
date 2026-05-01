@@ -114,7 +114,7 @@ const TAB_ITEMS = [
         label: '活跃网关',
         title: '网关代理节点',
         description: '一键选择并切换当前的全局代理网络，将流量无缝转发至目标底层服务商。',
-        icon: 'ph:route-bold',
+        icon: 'ph:share-network-bold',
     },
     {
         key: 'providers',
