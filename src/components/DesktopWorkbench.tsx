@@ -234,10 +234,11 @@ export default function DesktopWorkbench({
 
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Premium Translucent Sidebar */}
-                <aside className="w-64 border-r border-border/50 bg-transparent flex flex-col pt-2 z-10 selection:bg-primary/30">
-                    <nav className="flex-1 space-y-1 px-3 overflow-y-auto">
-                        <div className="px-2 pb-1.5 pt-1 mb-1">
-                            <p className="text-[11px] font-medium uppercase tracking-[2.4px] text-muted-foreground">系统模块</p>
+                <aside className="w-[280px] bg-background/30 backdrop-blur-3xl border-r border-border/40 flex flex-col z-10 selection:bg-primary/30 relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-50 pointer-events-none" />
+                    <nav className="flex-1 space-y-1.5 px-4 pt-6 overflow-y-auto relative z-10">
+                        <div className="px-2 pb-2 mb-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[3px] text-muted-foreground/80">核心模块</p>
                         </div>
                         {TAB_ITEMS.map((item) => (
                             <button
@@ -245,16 +246,16 @@ export default function DesktopWorkbench({
                                 type="button"
                                 onClick={() => setActiveTab(item.key)}
                                 className={cn(
-                                    'group w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-medium transition-all duration-300 outline-none select-none relative overflow-hidden',
+                                    'group w-full flex items-center gap-3.5 rounded-[14px] px-4 py-3.5 text-[14px] font-medium transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] outline-none select-none relative overflow-hidden',
                                     activeTab === item.key
-                                        ? 'bg-primary/10 text-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-primary/20'
-                                        : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground border border-transparent'
+                                        ? 'bg-primary/15 text-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-primary/20'
+                                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent'
                                 )}
                             >
                                 {activeTab === item.key && (
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-primary rounded-r-full shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-3/5 bg-primary rounded-r-full shadow-[0_0_12px_rgba(6,182,212,0.6)]"></div>
                                 )}
-                                <Icon icon={item.icon} className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", activeTab === item.key ? "text-primary" : "opacity-70")} />
+                                <Icon icon={item.icon} className={cn("h-[22px] w-[22px] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]", activeTab === item.key ? "scale-110 drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]" : "opacity-60 group-hover:scale-110 group-hover:opacity-100")} />
                                 {item.label}
                             </button>
                         ))}
@@ -287,10 +288,11 @@ export default function DesktopWorkbench({
 
                 {/* Main Content Area */}
                 <main className="flex-1 overflow-y-auto relative bg-transparent scroll-smooth">
-                    <div className="mx-auto w-full max-w-5xl px-8 py-10">
-                        <header className="mb-8">
-                            <h1 className="text-4xl font-normal tracking-[-0.72px] text-foreground">{activeView.title}</h1>
-                            <p className="mt-2.5 text-[18px] text-muted-foreground font-normal leading-relaxed max-w-2xl">{activeView.description}</p>
+                    <div className="mx-auto w-full max-w-[1400px] px-10 py-12">
+                        <header className="mb-12 relative">
+                            <div className="absolute -left-10 top-0 w-1 h-full bg-primary/20 rounded-r-full" />
+                            <h1 className="text-[42px] font-bold tracking-tight text-foreground/90 drop-shadow-sm">{activeView.title}</h1>
+                            <p className="mt-3 text-[16px] text-muted-foreground/80 font-medium leading-relaxed max-w-2xl">{activeView.description}</p>
                         </header>
 
                         <div className="min-h-[400px]">

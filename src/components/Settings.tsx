@@ -133,7 +133,7 @@ export default function AppSettings() {
                         <p className="text-[14px] text-muted-foreground/80 mt-1">在系统启动时自动运行代理服务</p>
                     </div>
                 </div>
-                <Switch checked={autoLaunch} onCheckedChange={toggle} disabled={loadingAutoLaunch} className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_rgba(var(--primary),0.5)]" />
+                <Switch checked={autoLaunch} onCheckedChange={toggle} disabled={loadingAutoLaunch} className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_rgba(6,182,212,0.5)]" />
             </div>
 
             <div className="flex items-center justify-between border border-border/40 rounded-[20px] p-6 bg-gradient-to-r from-muted/20 to-transparent shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:bg-muted/30 transition-all hover:border-border/80 group">

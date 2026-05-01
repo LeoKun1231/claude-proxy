@@ -16,7 +16,7 @@ export default function StatusBar({ status, loading, onStart, onStop, onRestart,
 
             
             <div className="flex items-center gap-5 relative z-10">
-                <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-primary/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_4px_20px_rgba(var(--primary),0.1)] border border-primary/20">
+                <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-primary/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_4px_20px_rgba(6,182,212,0.1)] border border-primary/20">
                     {status.running ? (
                         <>
                             <div className="absolute inset-0 bg-emerald-500/20 blur-xl pointer-events-none" />
@@ -60,7 +60,7 @@ export default function StatusBar({ status, loading, onStart, onStop, onRestart,
                             <Icon icon="ph:warning-circle-bold" className="w-4 h-4 mr-2.5 transition-transform group-hover/btn:scale-110" />
                             结束端口占用
                         </Button>
-                        <Button size="sm" onClick={onStart} disabled={loading} className="h-11 px-8 rounded-2xl bg-primary border-t border-primary-foreground/20 hover:bg-primary/90 text-primary-foreground font-medium text-[15px] shadow-[0_4px_15px_rgba(var(--primary),0.3)] transition-all hover:-translate-y-0.5 group/btn">
+                        <Button size="sm" onClick={onStart} disabled={loading} className="h-11 px-8 rounded-2xl bg-primary border-t border-primary-foreground/20 hover:bg-primary/90 text-primary-foreground font-medium text-[15px] shadow-[0_4px_15px_rgba(6,182,212,0.3)] transition-all hover:-translate-y-0.5 group/btn">
                             <Icon icon="ph:play-circle-bold" className="w-5 h-5 mr-2.5 transition-transform group-hover/btn:scale-110" />
                             启动代理
                         </Button>

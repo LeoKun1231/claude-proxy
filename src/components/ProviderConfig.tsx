@@ -301,7 +301,7 @@ export default function ProviderConfig() {
                                 >
                                     <Icon icon="ph:dots-six-vertical-bold" className="h-5 w-5" />
                                 </button>
-                                <Switch checked={provider.enabled} onCheckedChange={checked => updateProvider(provider.id, 'enabled', checked)} className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_rgba(var(--primary),0.5)]" />
+                                <Switch checked={provider.enabled} onCheckedChange={checked => updateProvider(provider.id, 'enabled', checked)} className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_rgba(6,182,212,0.5)]" />
                                 <Input
                                     value={provider.name}
                                     onChange={e => updateProvider(provider.id, 'name', e.target.value)}

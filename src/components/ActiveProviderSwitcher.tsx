@@ -569,7 +569,7 @@ export default function ActiveProviderSwitcher() {
                         <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[starting-style]:opacity-0 data-[ending-style]:opacity-0 transition-opacity duration-200" />
                         <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-[min(560px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-[12px] border border-border bg-background p-6 shadow-xl outline-none data-[starting-style]:opacity-0 data-[starting-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:scale-95 transition-all duration-200">
                             <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.2)]">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
                                     <Icon icon="ph:faders-bold" className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -635,7 +635,7 @@ export default function ActiveProviderSwitcher() {
                     <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[starting-style]:opacity-0 data-[ending-style]:opacity-0 transition-opacity duration-200" />
                     <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-[min(620px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-[12px] border border-border bg-background p-6 shadow-xl outline-none data-[starting-style]:opacity-0 data-[starting-style]:scale-95 data-[ending-style]:opacity-0 data-[ending-style]:scale-95 transition-all duration-200">
                         <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.2)]">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
                                 <Icon icon="ph:plus-bold" className="h-5 w-5" />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -839,13 +839,13 @@ export default function ActiveProviderSwitcher() {
                                                 <div className={cn(
                                                     'transition-all duration-300 rounded-[14px] overflow-hidden border',
                                                     isActive 
-                                                        ? 'border-primary/30 bg-primary/5 shadow-[0_0_15px_rgba(var(--primary),0.05)]' 
+                                                        ? 'border-primary/30 bg-primary/5 shadow-[0_0_15px_rgba(6,182,212,0.05)]' 
                                                         : expanded
                                                             ? 'border-border/50 bg-muted/10'
                                                             : 'border-transparent hover:bg-muted/30 hover:border-border/30'
                                                 )}>
                                                     <div className="flex items-center gap-3 px-3 py-3 relative">
-                                                        {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>}
+                                                        {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary shadow-[0_0_10px_rgba(6,182,212,0.5)]"></div>}
                                                         <Collapsible.Trigger
                                                             render={
                                                                 <button
@@ -859,7 +859,7 @@ export default function ActiveProviderSwitcher() {
                                                         />
                                                         <div className={cn(
                                                                 'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-inner ring-1 ring-border/30',
-                                                                isActive ? 'bg-primary text-primary-foreground shadow-[0_0_10px_rgba(var(--primary),0.3)] ring-primary/50' : 'bg-muted text-muted-foreground'
+                                                                isActive ? 'bg-primary text-primary-foreground shadow-[0_0_10px_rgba(6,182,212,0.3)] ring-primary/50' : 'bg-muted text-muted-foreground'
                                                             )}>
                                                                 <Icon icon="ph:hard-drives-bold" className="h-5 w-5" />
                                                             </div>
@@ -870,7 +870,7 @@ export default function ActiveProviderSwitcher() {
                                                             <div className="flex min-w-0 flex-wrap items-center gap-2">
                                                                 <h4 className="truncate text-[14px] font-normal text-foreground">{provider.name}</h4>
                                                                 {isActive ? (
-                                                                    <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-medium text-primary-foreground shadow-[0_0_10px_rgba(var(--primary),0.3)]">
+                                                                    <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-medium text-primary-foreground shadow-[0_0_10px_rgba(6,182,212,0.3)]">
                                                                         <Icon icon="ph:check-circle-bold" className="h-3 w-3" /> 当前活动
                                                                     </span>
                                                                 ) : (
@@ -905,7 +905,7 @@ export default function ActiveProviderSwitcher() {
                                                         <Button
                                                             type="button"
                                                             variant={isActive ? 'default' : 'outline'}
-                                                            className={cn("h-9 shrink-0 rounded-xl px-4 text-[12px] font-medium transition-all", isActive ? "shadow-[0_0_15px_rgba(var(--primary),0.2)] bg-primary text-primary-foreground hover:bg-primary" : "shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border-border/60 hover:bg-primary/10 hover:text-primary hover:border-primary/20")}
+                                                            className={cn("h-9 shrink-0 rounded-xl px-4 text-[12px] font-medium transition-all", isActive ? "shadow-[0_0_15px_rgba(6,182,212,0.2)] bg-primary text-primary-foreground hover:bg-primary" : "shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border-border/60 hover:bg-primary/10 hover:text-primary hover:border-primary/20")}
                                                             onClick={() => handleSelectProvider(provider, group.model)}
                                                         >
                                                             {isActive ? <Icon icon="ph:check-circle-bold" className="mr-1.5 h-4 w-4" /> : <Icon icon="ph:check-bold" className="mr-1.5 h-4 w-4" />}

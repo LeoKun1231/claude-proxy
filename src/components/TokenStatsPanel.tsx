@@ -488,7 +488,7 @@ export default function TokenStatsPanel() {
                     { label: '输出 Token', value: summary.outputTokens, icon: 'ph:timer-bold', formatter: formatTokenCount },
                     { label: '总 Token', value: summary.totalTokens, icon: 'ph:circles-four-bold', formatter: formatTokenCount },
                 ].map((item) => (
-                    <div key={item.label} className="group rounded-[24px] border border-border/40 bg-gradient-to-b from-card/60 to-transparent p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] backdrop-blur-sm transition-all duration-300 hover:border-primary/20 hover:shadow-[0_8px_30px_rgba(var(--primary),0.1)] hover:-translate-y-1">
+                    <div key={item.label} className="group rounded-[24px] border border-border/40 bg-gradient-to-b from-card/60 to-transparent p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] backdrop-blur-sm transition-all duration-300 hover:border-primary/20 hover:shadow-[0_8px_30px_rgba(6,182,212,0.1)] hover:-translate-y-1">
                         <div className="flex items-center justify-between">
                             <p className="text-[12px] font-semibold uppercase tracking-[1.5px] text-muted-foreground/80">{item.label}</p>
                             <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-primary/10 text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
@@ -600,7 +600,7 @@ export default function TokenStatsPanel() {
                                     <span className="text-foreground font-medium bg-background/50 px-2 py-0.5 rounded-[6px] border border-border/50">{formatTokenCount(bucket.totalTokens)} tokens</span>
                                 </div>
                                 <div className="h-2.5 overflow-hidden rounded-full bg-background border border-border/30">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary shadow-[0_0_10px_rgba(var(--primary),0.5)] transition-all duration-1000 ease-out" style={{ width: `${Math.max(4, (bucket.totalTokens / maxBucketTokens) * 100)}%` }} />
+                                    <div className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary shadow-[0_0_10px_rgba(6,182,212,0.5)] transition-all duration-1000 ease-out" style={{ width: `${Math.max(4, (bucket.totalTokens / maxBucketTokens) * 100)}%` }} />
                                 </div>
                             </div>
                         ))}

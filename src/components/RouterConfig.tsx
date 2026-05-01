@@ -236,7 +236,7 @@ export default function RouterConfigPanel() {
                                 <Switch
                                     checked={target.enabled}
                                     onCheckedChange={(checked) => void updateCategory(meta.key, { enabled: checked })}
-                                    className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_rgba(var(--primary),0.5)]"
+                                    className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_rgba(6,182,212,0.5)]"
                                 />
                             </div>
 
