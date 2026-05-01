@@ -199,6 +199,18 @@ export default function ProviderConfig() {
         });
     };
 
+    const moveProviderToTop = (id: string) => {
+        setProviders(prev => {
+            const index = prev.findIndex(provider => provider.id === id);
+            if (index <= 0) return prev;
+            const next = [...prev];
+            const [moved] = next.splice(index, 1);
+            next.unshift(moved);
+            queueSave(next);
+            return next;
+        });
+    };
+
     const onProviderDragStart = (event: DragEvent<HTMLElement>, id: string) => {
         setDraggingProviderId(id);
         event.dataTransfer.effectAllowed = 'move';
@@ -308,9 +320,27 @@ export default function ProviderConfig() {
                                     placeholder="服务商名称"
                                     className="h-9 flex-1 border-border/50 bg-background/50 backdrop-blur-sm px-3 text-[14px] font-medium rounded-lg focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                 />
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg transition-colors" onClick={() => deleteProvider(provider.id)}>
-                                    <Icon icon="ph:trash-bold" className="w-4 h-4" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={sortBy !== 'custom' || provider.id === sortedProviders[0]?.id}
+                                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                        onClick={() => moveProviderToTop(provider.id)}
+                                        title="置顶"
+                                    >
+                                        <Icon icon="ph:caret-double-up-bold" className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg transition-colors"
+                                        onClick={() => deleteProvider(provider.id)}
+                                        title="删除"
+                                    >
+                                        <Icon icon="ph:trash-bold" className="w-4 h-4" />
+                                    </Button>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 gap-3 pt-1">
