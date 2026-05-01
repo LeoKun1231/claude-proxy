@@ -1,5 +1,5 @@
 import { DragEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { toast } from 'sonner';
 import { parseModelsInput, mergeModels, removeProviderModel } from '@/lib/provider-options';
 import { cn } from '@/lib/utils';
@@ -238,37 +238,47 @@ export default function ProviderConfig() {
     }, [providers, sortBy]);
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="text-[24px] font-normal tracking-[0px] text-foreground">自定义服务商</h3>
-                    <p className="text-[18px] text-muted-foreground mt-1 leading-relaxed">用于模型路由的后端 API 服务连接</p>
+        <div className="space-y-6 animate-in fade-in duration-500 fill-mode-both">
+            <div className="flex items-center justify-between rounded-[24px] border border-border/40 bg-gradient-to-br from-card/60 to-transparent p-7 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] backdrop-blur-md mb-6">
+                <div className="space-y-1.5">
+                    <h3 className="text-[24px] font-medium tracking-tight text-foreground flex items-center gap-2">
+                        <Icon icon="ph:plugs-connected-bold" className="text-primary/80" /> 自定义服务商
+                    </h3>
+                    <p className="text-[15px] text-muted-foreground/80 leading-relaxed max-w-xl">
+                        用于模型路由的后端 API 服务连接配置
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     <Select value={sortBy} onValueChange={(v) => setSortBy(v || 'custom')}>
-                        <SelectTrigger size="sm" className="h-8 rounded-[50px] border-border bg-transparent text-[13px] text-muted-foreground shadow-none w-[110px]">
-                            <SelectValue render={(v: any) => <span>{SORT_LABELS[v] || '默认排序'}</span>} />
+                        <SelectTrigger size="sm" className="h-9 rounded-xl border-border/40 bg-background/50 backdrop-blur-sm text-[13px] text-muted-foreground shadow-sm hover:border-border/80 transition-colors w-[120px] focus-visible:ring-primary/30">
+                            <SelectValue render={(v: any) => <span className="font-medium">{SORT_LABELS[v] || '默认排序'}</span>} />
                         </SelectTrigger>
-                        <SelectContent side="bottom" align="end" className="rounded-[10px] border-border/50 bg-background min-w-[110px]">
-                            <SelectItem value="custom" className="text-[13px] cursor-pointer rounded-[6px]">默认排序</SelectItem>
-                            <SelectItem value="name" className="text-[13px] cursor-pointer rounded-[6px]">按名称</SelectItem>
-                            <SelectItem value="enabled" className="text-[13px] cursor-pointer rounded-[6px]">按状态</SelectItem>
-                            <SelectItem value="models" className="text-[13px] cursor-pointer rounded-[6px]">按模型数量</SelectItem>
+                        <SelectContent side="bottom" align="end" className="rounded-xl border-border/40 bg-background/80 backdrop-blur-md min-w-[120px]">
+                            <SelectItem value="custom" className="text-[13px] cursor-pointer rounded-lg font-medium">默认排序</SelectItem>
+                            <SelectItem value="name" className="text-[13px] cursor-pointer rounded-lg font-medium">按名称</SelectItem>
+                            <SelectItem value="enabled" className="text-[13px] cursor-pointer rounded-lg font-medium">按状态</SelectItem>
+                            <SelectItem value="models" className="text-[13px] cursor-pointer rounded-lg font-medium">按模型数量</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button size="sm" variant="outline" className="border-border rounded-[50px] shadow-none hover:bg-accent" onClick={addProvider}>
-                        <Plus className="w-3.5 h-3.5 mr-1" /> 添加
+                    <Button size="sm" variant="outline" className="h-9 border-border/60 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all font-medium" onClick={addProvider}>
+                        <Icon icon="ph:plus-bold" className="w-4 h-4 mr-1.5" /> 添加
                     </Button>
                 </div>
             </div>
 
             {providers.length === 0 ? (
-                <div className="border border-border rounded-[12px] py-10 flex flex-col items-center justify-center text-center">
-                    <p className="text-[20px] font-normal text-foreground mb-2">尚未配置服务商</p>
-                    <Button size="sm" variant="link" onClick={addProvider} className="mt-1 cursor-pointer text-muted-foreground">添加第一个服务商</Button>
+                <div className="border border-border/40 rounded-[20px] py-16 flex flex-col items-center justify-center text-center bg-gradient-to-b from-muted/20 to-transparent shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-[18px] bg-muted/40 text-muted-foreground/50 mb-4 border border-border/30 shadow-sm">
+                        <Icon icon="ph:ghost-bold" className="h-8 w-8" />
+                    </div>
+                    <p className="text-[18px] font-medium text-foreground tracking-tight mb-2">尚未配置服务商</p>
+                    <p className="text-[14px] text-muted-foreground/80 mb-5 max-w-md">添加自定义服务商后，您可以在这里配置上游模型接口及路由策略。</p>
+                    <Button size="sm" variant="outline" onClick={addProvider} className="h-10 px-6 rounded-xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 transition-colors font-medium">
+                        <Icon icon="ph:plus-bold" className="w-4 h-4 mr-1.5" /> 添加第一个服务商
+                    </Button>
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div className="space-y-5">
                     {sortedProviders.map(provider => (
                         <div
                             key={provider.id}
@@ -276,137 +286,144 @@ export default function ProviderConfig() {
                             onDrop={(event) => onProviderDrop(event, provider.id)}
                             onDragEnd={onProviderDragEnd}
                             className={cn(
-                                'border border-border rounded-[12px] p-6 space-y-5 bg-transparent transition-opacity',
-                                draggingProviderId === provider.id && 'opacity-55'
+                                'border border-border/40 rounded-[20px] p-7 space-y-6 bg-gradient-to-r from-muted/20 to-transparent shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] transition-all duration-300 hover:border-border/80 group/provider',
+                                draggingProviderId === provider.id && 'opacity-55 scale-[0.99] bg-muted/40',
+                                !provider.enabled && 'opacity-70 grayscale-[0.3]'
                             )}
                         >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-4">
                                 <button
                                     type="button"
                                     draggable
                                     onDragStart={(event) => onProviderDragStart(event, provider.id)}
-                                    className="flex h-8 w-6 shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 active:cursor-grabbing"
+                                    className="flex h-9 w-7 shrink-0 cursor-grab items-center justify-center text-muted-foreground/40 hover:text-foreground transition-colors active:cursor-grabbing rounded-md hover:bg-muted/50"
                                     aria-label="拖拽排序"
                                 >
-                                    <GripVertical className="h-5 w-5" />
+                                    <Icon icon="ph:dots-six-vertical-bold" className="h-5 w-5" />
                                 </button>
-                                <Switch checked={provider.enabled} onCheckedChange={checked => updateProvider(provider.id, 'enabled', checked)} />
+                                <Switch checked={provider.enabled} onCheckedChange={checked => updateProvider(provider.id, 'enabled', checked)} className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_rgba(var(--primary),0.5)]" />
                                 <Input
                                     value={provider.name}
                                     onChange={e => updateProvider(provider.id, 'name', e.target.value)}
                                     placeholder="服务商名称"
-                                    className="h-10 flex-1 border-border/50 bg-muted/60 px-3 text-[16px] font-medium rounded-[8px] focus-visible:ring-1 focus-visible:ring-ring"
+                                    className="h-11 flex-1 border-border/50 bg-background/50 backdrop-blur-sm px-4 text-[16px] font-medium rounded-xl focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                 />
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer" onClick={() => deleteProvider(provider.id)}>
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-xl transition-colors" onClick={() => deleteProvider(provider.id)}>
+                                    <Icon icon="ph:trash-bold" className="w-4.5 h-4.5" />
                                 </Button>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-[1.4px]">基础 API 地址</label>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 ml-11">
+                                <div className="space-y-2.5">
+                                    <label className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-[1.5px] ml-1">基础 API 地址</label>
                                     <Input
                                         value={provider.baseUrl}
                                         onChange={e => updateProvider(provider.id, 'baseUrl', e.target.value)}
                                         placeholder="https://api.example.com"
-                                        className="h-10 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
+                                        className="h-11 text-[14px] font-mono bg-background/50 backdrop-blur-sm border-border/50 rounded-xl focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-[1.4px]">API 密钥</label>
+                                <div className="space-y-2.5">
+                                    <label className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-[1.5px] ml-1">API 密钥</label>
                                     <Input
                                         type="password"
                                         value={provider.apiKey}
                                         onChange={e => updateProvider(provider.id, 'apiKey', e.target.value)}
                                         placeholder="sk-..."
-                                        className="h-10 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
+                                        className="h-11 text-[14px] font-mono bg-background/50 backdrop-blur-sm border-border/50 rounded-xl focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-[1.4px]">支持的模型</label>
-                                        <p className="mt-1 flex-[11px] text-muted-foreground text-[14px] leading-relaxed">
+                            <div className="space-y-3.5 pt-2 border-t border-border/20 ml-11">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-[1.5px] ml-1 flex items-center gap-1.5">
+                                            支持的模型
+                                        </label>
+                                        <p className="text-[13px] text-muted-foreground/80 leading-relaxed max-w-2xl ml-1">
                                             添加后会写入当前服务商的 `models`，并自动进入路由页的目标模型候选。
                                         </p>
                                     </div>
-                                    <span className="text-[12px] text-muted-foreground uppercase tracking-[1.4px] font-medium">{provider.models.length} 个模型</span>
+                                    <Badge variant="outline" className="h-6 px-2.5 rounded-full font-mono text-[11px] bg-muted/20 border-border/50">
+                                        {provider.models.length} 项
+                                    </Badge>
                                 </div>
 
-                                <div className="flex flex-col gap-3 md:flex-row">
+                                <div className="flex flex-col gap-3 md:flex-row pt-1">
                                     <Input
                                         value={modelDrafts[provider.id] || ''}
                                         onChange={e => setModelDraft(provider.id, e.target.value)}
                                         onKeyDown={e => onModelKeyDown(e, provider.id)}
                                         placeholder="例如: claude-sonnet-4-20250514，可用逗号一次添加多个"
-                                        className="h-10 flex-1 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
+                                        className="h-11 flex-1 text-[14px] font-mono bg-background/50 backdrop-blur-sm border-border/50 rounded-xl focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                     />
-                                    <Button type="button" size="sm" variant="outline" className="shrink-0 h-10 px-4 border-border rounded-[50px] shadow-none hover:bg-accent" onClick={() => addModels(provider.id)}>
-                                        <Plus className="w-3.5 h-3.5 mr-1" /> 添加模型
+                                    <Button type="button" size="sm" variant="outline" className="shrink-0 h-11 px-5 border-border/60 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all font-medium" onClick={() => addModels(provider.id)}>
+                                        <Icon icon="ph:plus-bold" className="w-4 h-4 mr-1.5" /> 添加模型
                                     </Button>
                                 </div>
 
                                 {provider.models.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1.5">
+                                    <div className="flex flex-wrap gap-2 pt-1">
                                         {provider.models.map(model => (
-                                            <Badge key={model} variant="outline" className="h-auto gap-1 rounded-[6px] px-2.5 py-1.5 font-mono text-[13px] border-border/50 bg-muted/30">
+                                            <Badge key={model} variant="outline" className="h-7 gap-1.5 rounded-[8px] px-3 font-mono text-[13px] border-border/40 bg-background/60 backdrop-blur-sm shadow-sm transition-colors hover:border-border/80 group/model">
                                                 <span>{model}</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => removeModel(provider.id, model)}
-                                                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
+                                                    className="rounded-full p-0.5 text-muted-foreground/50 transition-colors hover:text-destructive hover:bg-destructive/10 cursor-pointer -mr-1"
                                                     aria-label={`移除模型 ${model}`}
                                                 >
-                                                    <X className="w-3.5 h-3.5" />
+                                                    <Icon icon="ph:x-bold" className="w-3.5 h-3.5" />
                                                 </button>
                                             </Badge>
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="rounded-[8px] border border-border/50 bg-muted/20 px-4 py-5 text-[14px] text-muted-foreground">
+                                    <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 px-5 py-6 text-center text-[13px] font-medium text-muted-foreground/60">
                                         暂无模型。添加后，路由页会直接复用这些模型作为目标候选。
                                     </div>
                                 )}
                             </div>
 
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-[1.4px]">自定义请求头</label>
-                                        <p className="mt-1 flex-[11px] text-muted-foreground text-[14px] leading-relaxed">
-                                            转发到上游时附加的请求头。同名客户端请求头会被覆盖；不允许设置 Authorization / x-api-key 等鉴权相关的保留头。
+                            <div className="space-y-4 pt-2 border-t border-border/20 ml-11">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-[1.5px] ml-1">自定义请求头</label>
+                                        <p className="text-[13px] text-muted-foreground/80 leading-relaxed max-w-2xl ml-1">
+                                            转发到上游时附加的请求头。同名客户端请求头会被覆盖；不允许设置 Authorization 等保留头。
                                         </p>
                                     </div>
-                                    <span className="text-[12px] text-muted-foreground uppercase tracking-[1.4px] font-medium">{provider.customHeaders.length} 条</span>
+                                    <Badge variant="outline" className="h-6 px-2.5 rounded-full font-mono text-[11px] bg-muted/20 border-border/50">
+                                        {provider.customHeaders.length} 条
+                                    </Badge>
                                 </div>
 
                                 {provider.customHeaders.length > 0 && (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3 pt-1">
                                         {provider.customHeaders.map((header, index) => (
-                                            <div key={index} className="flex items-center gap-2">
+                                            <div key={index} className="flex items-center gap-2 group/header">
                                                 <Input
                                                     value={header.name}
                                                     onChange={e => updateCustomHeader(provider.id, index, 'name', e.target.value)}
-                                                    placeholder="Header 名称，例如 X-Custom-Header"
-                                                    className="h-10 flex-1 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
+                                                    placeholder="Header 名称"
+                                                    className="h-10 flex-1 text-[13px] font-mono bg-background/50 backdrop-blur-sm border-border/50 rounded-xl focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                                 />
-                                                <span className="text-muted-foreground text-[14px]">:</span>
+                                                <span className="text-muted-foreground/40 font-mono">:</span>
                                                 <Input
                                                     value={header.value}
                                                     onChange={e => updateCustomHeader(provider.id, index, 'value', e.target.value)}
                                                     placeholder="Header 值"
-                                                    className="h-10 flex-1 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
+                                                    className="h-10 flex-[1.5] text-[13px] font-mono bg-background/50 backdrop-blur-sm border-border/50 rounded-xl focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                                 />
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive cursor-pointer"
+                                                    className="h-9 w-9 text-muted-foreground/50 opacity-0 group-hover/header:opacity-100 hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-xl transition-all"
                                                     onClick={() => removeCustomHeader(provider.id, index)}
                                                     aria-label="移除请求头"
                                                 >
-                                                    <X className="w-3.5 h-3.5" />
+                                                    <Icon icon="ph:trash-bold" className="w-4.5 h-4.5" />
                                                 </Button>
                                             </div>
                                         ))}
@@ -417,10 +434,10 @@ export default function ProviderConfig() {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    className="h-10 px-4 border-border rounded-[50px] shadow-none hover:bg-accent"
+                                    className="h-10 px-5 border-border/60 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:bg-secondary/20 hover:border-secondary/30 transition-all font-medium mt-1"
                                     onClick={() => addCustomHeader(provider.id)}
                                 >
-                                    <Plus className="w-3.5 h-3.5 mr-1" /> 添加请求头
+                                    <Icon icon="ph:plus-bold" className="w-4 h-4 mr-1.5" /> 添加请求头
                                 </Button>
                             </div>
                         </div>

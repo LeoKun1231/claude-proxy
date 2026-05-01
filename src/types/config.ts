@@ -1,5 +1,6 @@
 export type LegacyMappingType = 'main' | 'haiku';
 export const DEFAULT_PROXY_PORT = 5055;
+export const DEFAULT_TEST_PROMPT = '请用一句话回复“测试成功”。';
 
 export type RouterCategoryKey =
     | 'default'
@@ -41,6 +42,23 @@ export interface ModelRoute {
     providerLabel: string;
     baseUrl: string;
     apiKey: string;
+}
+
+export interface TestProviderModelRequest {
+    providerId: string;
+    model: string;
+    prompt: string;
+}
+
+export interface TestProviderModelResponse {
+    ok: boolean;
+    providerId: string;
+    providerLabel: string;
+    model: string;
+    latencyMs: number;
+    output?: string;
+    error?: string;
+    statusCode?: number;
 }
 
 export interface RouterTarget {
@@ -99,5 +117,7 @@ export interface AppConfig {
         autoLaunch: boolean;
         proxyPort: number;
         theme: 'light' | 'dark';
+        defaultTestPrompt: string;
+        gatewayModelOrder: string[];
     };
 }

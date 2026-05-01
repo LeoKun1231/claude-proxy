@@ -66,6 +66,7 @@ pub struct RouterTarget {
 
 pub const DEFAULT_LONG_CONTEXT_THRESHOLD: u32 = 60_000;
 pub const DEFAULT_PROXY_PORT: u16 = 5055;
+pub const DEFAULT_TEST_PROMPT: &str = "请用一句话回复“测试成功”。";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -160,10 +161,18 @@ pub struct Settings {
     pub proxy_port: u16,
     #[serde(default = "default_theme")]
     pub theme: String,
+    #[serde(default = "default_test_prompt")]
+    pub default_test_prompt: String,
+    #[serde(default)]
+    pub gateway_model_order: Vec<String>,
 }
 
 fn default_theme() -> String {
     "dark".to_string()
+}
+
+fn default_test_prompt() -> String {
+    DEFAULT_TEST_PROMPT.to_string()
 }
 
 impl Default for Settings {
@@ -172,6 +181,8 @@ impl Default for Settings {
             auto_launch: true,
             proxy_port: DEFAULT_PROXY_PORT,
             theme: default_theme(),
+            default_test_prompt: default_test_prompt(),
+            gateway_model_order: Vec::new(),
         }
     }
 }
@@ -204,7 +215,7 @@ fn default_routing_mode() -> String {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            config_version: 5,
+            config_version: 6,
             mapping: LegacyMapping::default(),
             router: RouterConfig::default(),
             routing_mode: default_routing_mode(),
@@ -232,6 +243,30 @@ pub struct ProxyCommandResult {
 pub struct ProxyStatusPayload {
     pub running: bool,
     pub port: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TestProviderModelRequest {
+    pub provider_id: String,
+    pub model: String,
+    pub prompt: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TestProviderModelResponse {
+    pub ok: bool,
+    pub provider_id: String,
+    pub provider_label: String,
+    pub model: String,
+    pub latency_ms: u128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -274,6 +309,16 @@ pub struct ProxyLogPayload {
     pub route_kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_usage: Option<TokenUsagePayload>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upstream_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upstream_body_preview: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_stage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]

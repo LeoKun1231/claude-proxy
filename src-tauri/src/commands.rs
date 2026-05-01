@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use std::process::Command;
+use std::sync::Arc;
 
-use serde_json::Value;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_dialog::DialogExt;
@@ -11,7 +11,10 @@ use tokio::sync::oneshot;
 use crate::{
     config::{get_available_targets as config_get_available_targets, ConfigStore},
     proxy::ProxyManager,
-    types::{ConfigUpdatedPayload, ProxyCommandResult, ProxyStatusPayload},
+    types::{
+        ConfigUpdatedPayload, ProxyCommandResult, ProxyStatusPayload, TestProviderModelRequest,
+        TestProviderModelResponse,
+    },
 };
 
 pub struct DesktopState {
@@ -88,8 +91,8 @@ $items = @($ids | ForEach-Object {{
             return Ok(Vec::new());
         }
 
-        let parsed: PortProcessList = serde_json::from_str(&stdout)
-            .map_err(|err| format!("解析端口占用结果失败: {err}"))?;
+        let parsed: PortProcessList =
+            serde_json::from_str(&stdout).map_err(|err| format!("解析端口占用结果失败: {err}"))?;
         return Ok(parsed.processes);
     }
 
@@ -121,10 +124,16 @@ $items = @($ids | ForEach-Object {{
                 .args(["-lc", &format!("ps -p {pid} -o comm= 2>/dev/null")])
                 .output()
                 .map_err(|err| format!("读取进程名失败: {err}"))?;
-            let name = String::from_utf8_lossy(&name_output.stdout).trim().to_string();
+            let name = String::from_utf8_lossy(&name_output.stdout)
+                .trim()
+                .to_string();
             processes.push(PortProcessInfo {
                 pid,
-                name: if name.is_empty() { "unknown".to_string() } else { name },
+                name: if name.is_empty() {
+                    "unknown".to_string()
+                } else {
+                    name
+                },
             });
         }
 
@@ -278,16 +287,16 @@ pub async fn set_mapping(
     value: String,
 ) -> Result<(), String> {
     let key = format!("mapping.{model_type}");
-    state
-        .config_store
-        .set_value(&key, Value::String(value))?;
+    state.config_store.set_value(&key, Value::String(value))?;
     state.emit_config_updated(key);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn get_available_targets(state: State<'_, DesktopState>) -> Result<Vec<String>, String> {
-    Ok(config_get_available_targets(&state.config_store.get_config()))
+    Ok(config_get_available_targets(
+        &state.config_store.get_config(),
+    ))
 }
 
 #[tauri::command]
@@ -317,10 +326,11 @@ pub async fn set_system_env(
 }
 
 #[tauri::command]
-pub async fn start_proxy(
-    state: State<'_, DesktopState>,
-) -> Result<ProxyCommandResult, String> {
-    Ok(state.proxy_manager.start(configured_proxy_port(&state)).await)
+pub async fn start_proxy(state: State<'_, DesktopState>) -> Result<ProxyCommandResult, String> {
+    Ok(state
+        .proxy_manager
+        .start(configured_proxy_port(&state))
+        .await)
 }
 
 #[tauri::command]
@@ -330,11 +340,12 @@ pub async fn stop_proxy(state: State<'_, DesktopState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn restart_proxy(
-    state: State<'_, DesktopState>,
-) -> Result<ProxyCommandResult, String> {
+pub async fn restart_proxy(state: State<'_, DesktopState>) -> Result<ProxyCommandResult, String> {
     state.proxy_manager.stop().await;
-    Ok(state.proxy_manager.start(configured_proxy_port(&state)).await)
+    Ok(state
+        .proxy_manager
+        .start(configured_proxy_port(&state))
+        .await)
 }
 
 #[tauri::command]
@@ -342,6 +353,14 @@ pub async fn get_proxy_status(
     state: State<'_, DesktopState>,
 ) -> Result<ProxyStatusPayload, String> {
     Ok(state.proxy_manager.get_status())
+}
+
+#[tauri::command]
+pub async fn test_provider_model(
+    state: State<'_, DesktopState>,
+    request: TestProviderModelRequest,
+) -> Result<TestProviderModelResponse, String> {
+    Ok(state.proxy_manager.test_provider_model(request).await)
 }
 
 #[tauri::command]
@@ -399,9 +418,7 @@ pub async fn release_port_process(
 }
 
 #[tauri::command]
-pub async fn import_config(
-    state: State<'_, DesktopState>,
- ) -> Result<String, String> {
+pub async fn import_config(state: State<'_, DesktopState>) -> Result<String, String> {
     let (tx, rx) = oneshot::channel();
     state
         .app_handle
@@ -420,8 +437,10 @@ pub async fn import_config(
         .into_path()
         .map_err(|err| format!("无法读取所选路径: {err}"))?;
 
-    let raw = std::fs::read_to_string(&file_path).map_err(|err| format!("读取配置文件失败: {err}"))?;
-    let config = serde_json::from_str::<Value>(&raw).map_err(|err| format!("配置文件不是有效 JSON: {err}"))?;
+    let raw =
+        std::fs::read_to_string(&file_path).map_err(|err| format!("读取配置文件失败: {err}"))?;
+    let config = serde_json::from_str::<Value>(&raw)
+        .map_err(|err| format!("配置文件不是有效 JSON: {err}"))?;
 
     state.config_store.replace_from_value(config)?;
     state.emit_config_imported();
@@ -475,7 +494,8 @@ pub async fn get_logs(state: State<'_, DesktopState>) -> Result<Value, String> {
 
 #[tauri::command]
 pub async fn get_token_usage_records(state: State<'_, DesktopState>) -> Result<Value, String> {
-    serde_json::to_value(state.proxy_manager.get_token_usage_records()).map_err(|err| err.to_string())
+    serde_json::to_value(state.proxy_manager.get_token_usage_records())
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -483,4 +503,3 @@ pub async fn clear_token_usage_records(state: State<'_, DesktopState>) -> Result
     state.proxy_manager.clear_token_usage_records().await;
     Ok(true)
 }
-

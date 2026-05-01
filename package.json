@@ -19,16 +19,17 @@
     "build:web": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml"
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.8.0",
-    "@tauri-apps/plugin-autostart": "^2.2.1",
     "@base-ui/react": "^1.3.0",
     "@fontsource-variable/geist": "^5.2.8",
+    "@iconify/react": "^6.0.2",
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-autostart": "^2.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.577.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "shadcn": "^4.0.8",

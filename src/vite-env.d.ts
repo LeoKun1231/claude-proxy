@@ -2,7 +2,7 @@
 
 // 扩展 CSS 属性类型以支持 Electron 特有属性
 import 'react';
-import type { AppConfig, LegacyMappingType } from './types/config';
+import type { AppConfig, LegacyMappingType, TestProviderModelRequest, TestProviderModelResponse } from './types/config';
 import type { TokenUsagePayload, TokenUsageRecord } from './types/token-usage';
 
 declare module 'react' {
@@ -26,6 +26,7 @@ interface ElectronAPI {
     stopProxy: () => Promise<void>;
     getProxyStatus: () => Promise<{ running: boolean; port: number }>;
     restartProxy: () => Promise<{ success: boolean; port: number; error?: string; alreadyRunning?: boolean }>;
+    testProviderModel: (request: TestProviderModelRequest) => Promise<TestProviderModelResponse>;
     releasePortProcess: (port?: number) => Promise<{
         success: boolean;
         port: number;
@@ -44,6 +45,11 @@ interface ElectronAPI {
         providerLabel?: string;
         model?: string;
         routeKind?: string;
+        statusCode?: number;
+        upstreamUrl?: string;
+        upstreamBodyPreview?: string;
+        errorStage?: string;
+        durationMs?: number;
         tokenUsage?: TokenUsagePayload;
     }>>;
     clearLogs?: () => Promise<void>;
@@ -58,6 +64,11 @@ interface ElectronAPI {
         providerLabel?: string;
         model?: string;
         routeKind?: string;
+        statusCode?: number;
+        upstreamUrl?: string;
+        upstreamBodyPreview?: string;
+        errorStage?: string;
+        durationMs?: number;
         tokenUsage?: TokenUsagePayload;
     }) => void) => void;
     removeProxyLogListener: (callback?: (data: {
@@ -69,6 +80,11 @@ interface ElectronAPI {
         providerLabel?: string;
         model?: string;
         routeKind?: string;
+        statusCode?: number;
+        upstreamUrl?: string;
+        upstreamBodyPreview?: string;
+        errorStage?: string;
+        durationMs?: number;
         tokenUsage?: TokenUsagePayload;
     }) => void) => void;
     onConfigUpdated: (callback: (payload: { key: string; updatedAt: number }) => void) => void;

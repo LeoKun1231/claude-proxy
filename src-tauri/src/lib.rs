@@ -34,8 +34,7 @@ fn build_tray_menu(
         for provider in &config.providers.custom_providers {
             if provider.provider.enabled {
                 let item_id = format!("tray-provider:{}", provider.id);
-                let item = MenuItemBuilder::with_id(&item_id, &provider.name)
-                    .build(app_handle)?;
+                let item = MenuItemBuilder::with_id(&item_id, &provider.name).build(app_handle)?;
                 builder = builder.item(&item);
             }
         }
@@ -54,8 +53,7 @@ fn build_tray_menu(
             let provider = config::get_builtin_provider_pub(&config.providers, key);
             if provider.enabled {
                 let item_id = format!("tray-provider:{key}");
-                let item = MenuItemBuilder::with_id(&item_id, label)
-                    .build(app_handle)?;
+                let item = MenuItemBuilder::with_id(&item_id, label).build(app_handle)?;
                 builder = builder.item(&item);
             }
         }
@@ -65,25 +63,13 @@ fn build_tray_menu(
 
     // 构建主菜单
     MenuBuilder::new(app_handle)
-        .item(
-            &MenuItemBuilder::with_id("tray-show", "显示主窗口")
-                .build(app_handle)?,
-        )
+        .item(&MenuItemBuilder::with_id("tray-show", "显示主窗口").build(app_handle)?)
         .separator()
         .item(&gateway_submenu)
         .separator()
-        .item(
-            &MenuItemBuilder::with_id("tray-start", "启动代理")
-                .build(app_handle)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("tray-stop", "停止代理")
-                .build(app_handle)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id("tray-restart", "重启代理")
-                .build(app_handle)?,
-        )
+        .item(&MenuItemBuilder::with_id("tray-start", "启动代理").build(app_handle)?)
+        .item(&MenuItemBuilder::with_id("tray-stop", "停止代理").build(app_handle)?)
+        .item(&MenuItemBuilder::with_id("tray-restart", "重启代理").build(app_handle)?)
         .separator()
         .item(&PredefinedMenuItem::quit(app_handle, Some("退出"))?)
         .build()
@@ -105,7 +91,8 @@ pub fn run() {
                 .map_err(|err| err.to_string())?;
             let data_dir = resolve_data_dir(app_data_dir);
             let config_store = Arc::new(ConfigStore::new(data_dir.clone())?);
-            let proxy_manager = ProxyManager::new(app_handle.clone(), config_store.clone(), data_dir)?;
+            let proxy_manager =
+                ProxyManager::new(app_handle.clone(), config_store.clone(), data_dir)?;
             let should_auto_launch = config_store.get_config().settings.auto_launch;
 
             // 同步 OS 级开机自启状态与配置
@@ -124,8 +111,8 @@ pub fn run() {
             });
 
             // 构建系统托盘
-            let tray_menu = build_tray_menu(&app_handle, &config_store)
-                .map_err(|err| err.to_string())?;
+            let tray_menu =
+                build_tray_menu(&app_handle, &config_store).map_err(|err| err.to_string())?;
 
             let app_handle_for_tray = app_handle.clone();
             let proxy_manager_for_tray = proxy_manager.clone();
@@ -173,7 +160,9 @@ pub fn run() {
                                     serde_json::json!({ "providerId": provider_id }),
                                 );
                                 // 刷新托盘菜单
-                                if let Ok(new_menu) = build_tray_menu(&app_handle_for_tray, &config_store_for_tray) {
+                                if let Ok(new_menu) =
+                                    build_tray_menu(&app_handle_for_tray, &config_store_for_tray)
+                                {
                                     if let Some(tray) = app_handle_for_tray.tray_by_id("main") {
                                         let _ = tray.set_menu(Some(new_menu));
                                     }
@@ -234,6 +223,7 @@ pub fn run() {
             commands::stop_proxy,
             commands::restart_proxy,
             commands::get_proxy_status,
+            commands::test_provider_model,
             commands::release_port_process,
             commands::import_config,
             commands::export_config,

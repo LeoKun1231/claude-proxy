@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Download, Maximize2, Minimize2, MoreHorizontal, Shrink, Terminal, Upload, X } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -96,77 +96,77 @@ export default function DesktopWorkbenchHeader({
 
     return (
         <header
-            className="title-bar sticky top-0 z-30 flex h-10 items-center justify-between gap-3 border-b px-3"
+            className="title-bar sticky top-0 z-30 flex h-[52px] items-center justify-between gap-4 border-b border-border/40 px-4 bg-background/60 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
             data-tauri-drag-region
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}
         >
             <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/90 text-primary-foreground">
-                    <Terminal className="h-4 w-4" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary/80 to-primary text-primary-foreground shadow-sm">
+                    <Icon icon="ph:terminal-bold" className="h-4.5 w-4.5" />
                 </div>
-                <div className="min-w-0">
-                    <p className="truncate text-[16px] font-medium tracking-normal text-foreground">Claude 代理网关</p>
-                    <p className="truncate text-[11px] uppercase tracking-[1.4px] text-muted-foreground mt-0.5">Rust 桌面引擎</p>
+                <div className="min-w-0 flex flex-col justify-center pt-0.5">
+                    <p className="truncate text-[15px] font-semibold tracking-tight text-foreground/90 leading-none">Claude 代理网关</p>
+                    <p className="truncate text-[10px] font-medium uppercase tracking-[1.5px] text-muted-foreground mt-1 leading-none">Rust 桌面引擎</p>
                 </div>
             </div>
 
             <div className="hidden min-w-0 items-center gap-2 lg:flex" data-no-drag="true">
-                <Badge variant="outline" className="rounded-full border-border/50 bg-muted/30 text-[11px]">
+                <Badge variant="outline" className="rounded-full border-border/50 bg-muted/20 text-[11px] backdrop-blur-sm px-2.5 py-0.5 shadow-sm">
                     {proxyStatus.running ? `端口 ${proxyStatus.port} 在线` : '代理已离线'}
                 </Badge>
-                <Badge variant="outline" className="rounded-full border-border/50 bg-muted/30 font-mono text-[11px]">
+                <Badge variant="outline" className="rounded-full border-border/50 bg-muted/20 font-mono text-[11px] backdrop-blur-sm px-2.5 py-0.5 shadow-sm">
                     127.0.0.1:{proxyStatus.port}
                 </Badge>
             </div>
 
-            <div className="flex items-center gap-1" data-no-drag="true">
-                <Button size="icon" variant="ghost" className="h-7 w-7" title="复制代理地址" onClick={onCopyProxyUrl}>
-                    <Copy className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-1.5" data-no-drag="true">
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-[10px] hover:bg-muted/50 transition-colors" title="复制代理地址" onClick={onCopyProxyUrl}>
+                    <Icon icon="ph:copy-bold" className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7" title="导出配置" onClick={onExport}>
-                    <Download className="h-3.5 w-3.5" />
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-[10px] hover:bg-muted/50 transition-colors" title="导出配置" onClick={onExport}>
+                    <Icon icon="ph:download-simple-bold" className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7" title="导入配置" onClick={onImport}>
-                    <Upload className="h-3.5 w-3.5" />
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-[10px] hover:bg-muted/50 transition-colors" title="导入配置" onClick={onImport}>
+                    <Icon icon="ph:upload-simple-bold" className="h-4 w-4 text-muted-foreground" />
                 </Button>
                 <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
+                    <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <Icon icon="ph:dots-three-bold" className="h-4.5 w-4.5" />
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent side="bottom" align="end" className="w-44">
-                        <DropdownMenuItem onClick={onCopyCommand} className="cursor-pointer">
-                            <Copy className="mr-2 h-4 w-4" /> 复制环境命令
+                    <DropdownMenuContent side="bottom" align="end" className="w-44 rounded-xl border-border/40 bg-background/80 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.1)]">
+                        <DropdownMenuItem onClick={onCopyCommand} className="cursor-pointer rounded-lg hover:bg-muted/50 font-medium">
+                            <Icon icon="ph:copy-bold" className="mr-2 h-4 w-4 text-muted-foreground" /> 复制环境命令
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
 
                 {/* 窗口控制按钮 */}
                 {isDesktopRuntime && (
-                    <div className="ml-1.5 flex items-center border-l border-border/50 pl-1.5">
+                    <div className="ml-2 flex items-center border-l border-border/30 pl-2">
                         <button
                             onClick={handleMinimize}
-                            className="inline-flex h-8 w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                            className="inline-flex h-8 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
                             title="最小化"
                         >
-                            <Minimize2 className="h-3.5 w-3.5" />
+                            <Icon icon="ph:minus-bold" className="h-4 w-4" />
                         </button>
                         <button
                             onClick={handleToggleFullscreen}
-                            className="inline-flex h-8 w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                            className="inline-flex h-8 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
                             title={isFullscreen ? '退出全屏' : '全屏'}
                         >
                             {isFullscreen
-                                ? <Shrink className="h-3.5 w-3.5" />
-                                : <Maximize2 className="h-3.5 w-3.5" />
+                                ? <Icon icon="ph:corners-in-bold" className="h-4 w-4" />
+                                : <Icon icon="ph:corners-out-bold" className="h-4 w-4" />
                             }
                         </button>
                         <button
                             onClick={handleClose}
-                            className="inline-flex h-8 w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-red-500/80 hover:text-white"
+                            className="inline-flex h-8 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/90 hover:text-destructive-foreground"
                             title="关闭"
                         >
-                            <X className="h-4 w-4" />
+                            <Icon icon="ph:x-bold" className="h-4 w-4" />
                         </button>
                     </div>
                 )}

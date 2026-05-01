@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { KeyRound, Route, ScrollText, Settings, Activity, BarChart3 } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import DesktopWorkbenchHeader from './DesktopWorkbenchHeader';
 import EnvConfig from './EnvConfig';
 import LogViewer from './LogViewer';
@@ -114,35 +114,35 @@ const TAB_ITEMS = [
         label: '活跃网关',
         title: '网关代理节点',
         description: '一键选择并切换当前的全局代理网络，将流量无缝转发至目标底层服务商。',
-        icon: Route,
+        icon: 'ph:route-bold',
     },
     {
         key: 'providers',
         label: '服务商列表',
         title: 'API 服务商与凭证池',
         description: '维护所有可用的上游 API 地址与鉴权信息，为路由规则提供共享的流媒体层。',
-        icon: KeyRound,
+        icon: 'ph:key-bold',
     },
     {
         key: 'tokens',
         label: 'Token 统计',
         title: 'Token 消耗统计',
         description: '独立查看所有 provider 的 token 消耗，并按 provider 和时间范围筛选。',
-        icon: BarChart3,
+        icon: 'ph:chart-bar-bold',
     },
     {
         key: 'logs',
         label: '实时日志',
         title: '交互日志与链路追踪',
         description: '直观跟踪 Rust 进程转发轨迹，定位上游兼容性及网络故障。',
-        icon: ScrollText,
+        icon: 'ph:scroll-bold',
     },
     {
         key: 'settings',
         label: '系统偏好',
         title: '系统级配置',
         description: '桌面级启动管理、环境变量映射与其他偏好修改。',
-        icon: Settings,
+        icon: 'ph:gear-bold',
     },
 ] as const;
 
@@ -234,9 +234,9 @@ export default function DesktopWorkbench({
 
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Premium Translucent Sidebar */}
-                <aside className="w-64 border-r border-border/50 bg-transparent flex flex-col pt-3 z-10 selection:bg-primary/30">
-                    <nav className="flex-1 space-y-1.5 px-3 overflow-y-auto">
-                        <div className="px-2 pb-2 pt-2 mb-4">
+                <aside className="w-64 border-r border-border/50 bg-transparent flex flex-col pt-2 z-10 selection:bg-primary/30">
+                    <nav className="flex-1 space-y-1 px-3 overflow-y-auto">
+                        <div className="px-2 pb-1.5 pt-1 mb-1">
                             <p className="text-[11px] font-medium uppercase tracking-[2.4px] text-muted-foreground">系统模块</p>
                         </div>
                         {TAB_ITEMS.map((item) => (
@@ -245,13 +245,16 @@ export default function DesktopWorkbench({
                                 type="button"
                                 onClick={() => setActiveTab(item.key)}
                                 className={cn(
-                                    'w-full flex items-center gap-3 rounded-[50px] px-4 py-2.5 text-[14px] font-medium transition-all duration-200 outline-none select-none',
+                                    'group w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-medium transition-all duration-300 outline-none select-none relative overflow-hidden',
                                     activeTab === item.key
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground'
+                                        ? 'bg-primary/10 text-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border border-primary/20'
+                                        : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground border border-transparent'
                                 )}
                             >
-                                <item.icon className={cn("h-4 w-4", activeTab === item.key ? "text-primary-foreground" : "opacity-70")} />
+                                {activeTab === item.key && (
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-primary rounded-r-full shadow-[0_0_10px_rgba(var(--primary),0.5)]"></div>
+                                )}
+                                <Icon icon={item.icon} className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", activeTab === item.key ? "text-primary" : "opacity-70")} />
                                 {item.label}
                             </button>
                         ))}
@@ -259,14 +262,15 @@ export default function DesktopWorkbench({
 
                     <div className="p-4 mt-auto border-t border-border/30">
                         <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-3 shadow-inner ring-1 ring-border/30">
-                            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-muted/50 ring-1 ring-border/50 shadow-xl">
+                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-muted/50 ring-1 ring-border/50 shadow-xl overflow-hidden">
                                 {proxyStatus.running ? (
                                     <>
-                                        <div className="absolute inset-0 rounded-[10px] bg-emerald-500/20 blur-md pointer-events-none" />
-                                        <Activity className="h-4 w-4 text-emerald-400 z-10 relative" />
+                                        <div className="absolute inset-0 bg-emerald-500/20 blur-xl pointer-events-none" />
+                                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent pointer-events-none" />
+                                        <Icon icon="ph:activity-bold" className="h-5 w-5 text-emerald-400 z-10 relative animate-pulse" />
                                     </>
                                 ) : (
-                                    <Activity className="h-4 w-4 text-muted-foreground/30" />
+                                    <Icon icon="ph:activity-bold" className="h-5 w-5 text-muted-foreground/30" />
                                 )}
                             </div>
                             <div className="min-w-0 pr-1">

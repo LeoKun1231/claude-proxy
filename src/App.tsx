@@ -22,7 +22,7 @@ export default function App() {
     });
     const { theme } = useTheme();
     const isDesktopRuntime = typeof window !== 'undefined'
-        && (import.meta.env.VITE_DESKTOP_RUNTIME === 'tauri' || '__TAURI_INTERNALS__' in window);
+        && typeof (window as any).__TAURI_INTERNALS__?.invoke === 'function';
 
     const handleStart = useCallback(async () => {
         const result = await start();
@@ -100,7 +100,8 @@ export default function App() {
     }, [proxyStatus.port]);
 
     return (
-        <div className="app-theme">
+        <div className="app-theme relative">
+            <div className="noise-bg"></div>
             <DesktopWorkbench
                 isDesktopRuntime={isDesktopRuntime}
                 proxyStatus={proxyStatus}

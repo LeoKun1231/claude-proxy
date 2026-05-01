@@ -3,7 +3,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use async_stream::stream;
@@ -17,18 +17,19 @@ use axum::{
 use chrono::Utc;
 use futures_util::StreamExt;
 use reqwest::Client;
+use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
-use tokio::{
-    net::TcpListener,
-    sync::oneshot,
-    task::JoinHandle,
-};
+use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use uuid::Uuid;
 
 use crate::{
     config::{ConfigStore, BUILTIN_PROVIDER_KEYS},
     openai,
-    types::{AppConfig, ConfigUpdatedPayload, CustomHeader, ProxyCommandResult, ProxyLogPayload, ProxyStatusPayload, RouterTarget, TokenUsagePayload, TokenUsageRecord, ROUTING_MODE_ROUTES},
+    types::{
+        AppConfig, ConfigUpdatedPayload, CustomHeader, ProxyCommandResult, ProxyLogPayload,
+        ProxyStatusPayload, RouterTarget, TestProviderModelRequest, TestProviderModelResponse,
+        TokenUsagePayload, TokenUsageRecord, ROUTING_MODE_ROUTES,
+    },
 };
 
 const UPSTREAM_TIMEOUT_MS: u64 = 120_000;
@@ -50,7 +51,11 @@ pub struct ProxyManager {
 }
 
 impl ProxyManager {
-    pub fn new(app_handle: AppHandle, config_store: Arc<ConfigStore>, data_dir: PathBuf) -> Result<Self, String> {
+    pub fn new(
+        app_handle: AppHandle,
+        config_store: Arc<ConfigStore>,
+        data_dir: PathBuf,
+    ) -> Result<Self, String> {
         let client = Client::builder()
             .timeout(Duration::from_millis(UPSTREAM_TIMEOUT_MS))
             .pool_max_idle_per_host(20)
@@ -85,7 +90,10 @@ impl ProxyManager {
 
         if self
             .config_store
-            .set_value("settings.proxyPort", serde_json::Value::Number(serde_json::Number::from(port)))
+            .set_value(
+                "settings.proxyPort",
+                serde_json::Value::Number(serde_json::Number::from(port)),
+            )
             .is_ok()
         {
             let _ = self.app_handle.emit(
@@ -116,7 +124,10 @@ impl ProxyManager {
     }
 
     pub fn get_logs(&self) -> Vec<ProxyLogPayload> {
-        self.logs.lock().map(|guard| guard.clone()).unwrap_or_default()
+        self.logs
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default()
     }
 
     pub fn get_token_usage_records(&self) -> Vec<TokenUsageRecord> {
@@ -137,6 +148,11 @@ impl ProxyManager {
             model: None,
             route_kind: None,
             token_usage: None,
+            status_code: None,
+            upstream_url: None,
+            upstream_body_preview: None,
+            error_stage: None,
+            duration_ms: None,
         });
     }
 
@@ -173,8 +189,16 @@ impl ProxyManager {
 
         let message = format!(
             "[TOKENS][{request_id}] provider={} model={} input={} output={} total={}",
-            if provider_label.trim().is_empty() { provider_id.trim() } else { provider_label.trim() },
-            if model.trim().is_empty() { "unknown" } else { model.trim() },
+            if provider_label.trim().is_empty() {
+                provider_id.trim()
+            } else {
+                provider_label.trim()
+            },
+            if model.trim().is_empty() {
+                "unknown"
+            } else {
+                model.trim()
+            },
             token_usage.input_tokens,
             token_usage.output_tokens,
             token_usage.total_tokens,
@@ -189,6 +213,11 @@ impl ProxyManager {
             model: Some(model.trim().to_string()),
             route_kind: None,
             token_usage: Some(token_usage),
+            status_code: None,
+            upstream_url: None,
+            upstream_body_preview: None,
+            error_stage: None,
+            duration_ms: None,
         });
     }
 
@@ -203,6 +232,11 @@ impl ProxyManager {
             model: payload.model,
             route_kind: payload.route_kind,
             token_usage: payload.token_usage,
+            status_code: payload.status_code,
+            upstream_url: payload.upstream_url,
+            upstream_body_preview: payload.upstream_body_preview,
+            error_stage: payload.error_stage,
+            duration_ms: payload.duration_ms,
         };
 
         if let Ok(mut guard) = self.logs.lock() {
@@ -244,38 +278,40 @@ impl ProxyManager {
             };
         }
 
-        let (listener, actual_port, fallback_message) = match TcpListener::bind(("127.0.0.1", port)).await {
+        let (listener, actual_port, fallback_message) = match TcpListener::bind(("127.0.0.1", port))
+            .await
+        {
             Ok(listener) => (listener, port, None),
-            Err(err) => {
-                match TcpListener::bind(("127.0.0.1", 0)).await {
-                    Ok(listener) => {
-                        let fallback_port = listener
-                            .local_addr()
-                            .map(|address| address.port())
-                            .unwrap_or(port);
-                        (
+            Err(err) => match TcpListener::bind(("127.0.0.1", 0)).await {
+                Ok(listener) => {
+                    let fallback_port = listener
+                        .local_addr()
+                        .map(|address| address.port())
+                        .unwrap_or(port);
+                    (
                             listener,
                             fallback_port,
                             Some(format!(
                                 "配置端口 {port} 绑定失败（{err}），已自动切换到可用端口 {fallback_port}"
                             )),
                         )
-                    }
-                    Err(fallback_err) => {
-                        return ProxyCommandResult {
-                            success: false,
-                            port,
-                            error: Some(format!("{err}; fallback bind failed: {fallback_err}")),
-                            already_running: None,
-                        };
-                    }
                 }
-            }
+                Err(fallback_err) => {
+                    return ProxyCommandResult {
+                        success: false,
+                        port,
+                        error: Some(format!("{err}; fallback bind failed: {fallback_err}")),
+                        already_running: None,
+                    };
+                }
+            },
         };
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
         let state = self.clone();
-        let app = Router::new().fallback(any(proxy_handler)).with_state(state.clone());
+        let app = Router::new()
+            .fallback(any(proxy_handler))
+            .with_state(state.clone());
 
         let task = tokio::spawn(async move {
             let _ = axum::serve(listener, app)
@@ -310,6 +346,217 @@ impl ProxyManager {
         }
     }
 
+    pub async fn test_provider_model(
+        &self,
+        request: TestProviderModelRequest,
+    ) -> TestProviderModelResponse {
+        let started = Instant::now();
+        let provider_id = request.provider_id.trim().to_string();
+        let requested_model = request.model.trim().to_string();
+        let prompt = request.prompt.trim();
+
+        if provider_id.is_empty() {
+            return test_response(
+                false,
+                provider_id,
+                String::new(),
+                requested_model,
+                started,
+                None,
+                Some("providerId 不能为空".to_string()),
+                None,
+            );
+        }
+        if requested_model.is_empty() {
+            return test_response(
+                false,
+                provider_id,
+                String::new(),
+                requested_model,
+                started,
+                None,
+                Some("模型名不能为空".to_string()),
+                None,
+            );
+        }
+        if prompt.is_empty() {
+            return test_response(
+                false,
+                provider_id,
+                String::new(),
+                requested_model,
+                started,
+                None,
+                Some("测试语句不能为空".to_string()),
+                None,
+            );
+        }
+
+        let config = self.config_store.get_config();
+        let provider_label = match validate_test_provider(&config, &provider_id, &requested_model) {
+            Ok(label) => label,
+            Err(message) => {
+                return test_response(
+                    false,
+                    provider_id,
+                    String::new(),
+                    requested_model,
+                    started,
+                    None,
+                    Some(message),
+                    None,
+                )
+            }
+        };
+
+        let mut provider = match build_provider_config(
+            &config,
+            &provider_id,
+            &requested_model,
+            None,
+            None,
+            Some(&provider_label),
+        ) {
+            Ok(provider) => provider,
+            Err(message) => {
+                return test_response(
+                    false,
+                    provider_id,
+                    provider_label,
+                    requested_model,
+                    started,
+                    None,
+                    Some(message),
+                    None,
+                )
+            }
+        };
+
+        if provider.base_url.trim().is_empty() {
+            return test_response(
+                false,
+                provider_id,
+                provider_label,
+                requested_model,
+                started,
+                None,
+                Some("Provider 未配置代理地址".to_string()),
+                None,
+            );
+        }
+
+        let needs_1m_beta = provider.model_name.to_lowercase().contains("[1m]");
+        if needs_1m_beta {
+            provider.model_name = strip_1m_suffix(&provider.model_name);
+        }
+
+        let openai_body = json!({
+            "model": provider.model_name.clone(),
+            "messages": [{ "role": "user", "content": prompt }],
+            "max_tokens": 64,
+            "temperature": 0
+        });
+        let anthropic_compat =
+            openai::is_anthropic_compatible_provider(&provider.provider_id, &provider.base_url);
+        let (target_url, body) = if anthropic_compat {
+            (
+                test_messages_url(&provider.base_url),
+                openai::convert_openai_chat_request_to_anthropic(
+                    &openai_body,
+                    &provider.model_name,
+                ),
+            )
+        } else {
+            (test_chat_completions_url(&provider.base_url), openai_body)
+        };
+
+        let mut builder = self.client.post(&target_url).json(&body);
+        if !provider.api_key.is_empty() {
+            builder = builder
+                .header("x-api-key", &provider.api_key)
+                .bearer_auth(&provider.api_key);
+        }
+        if anthropic_compat {
+            builder = builder.header("anthropic-version", "2023-06-01");
+        }
+        if needs_1m_beta {
+            builder = builder.header("anthropic-beta", "context-1m-2025-08-07");
+        }
+        for header in &provider.custom_headers {
+            let name = header.name.trim();
+            if name.is_empty() || skip_test_header(name) {
+                continue;
+            }
+            builder = builder.header(name, header.value.as_str());
+        }
+
+        let response = match builder.send().await {
+            Ok(response) => response,
+            Err(err) => {
+                let hint = build_proxy_error_hint(&err, &provider.base_url);
+                let message = if hint.is_empty() {
+                    err.to_string()
+                } else {
+                    format!("{} | {}", err, hint)
+                };
+                return test_response(
+                    false,
+                    provider_id,
+                    provider_label,
+                    requested_model,
+                    started,
+                    None,
+                    Some(message),
+                    None,
+                );
+            }
+        };
+
+        let status = response.status();
+        let status_code = status.as_u16();
+        let text = response.text().await.unwrap_or_default();
+        if !status.is_success() {
+            return test_response(
+                false,
+                provider_id,
+                provider_label,
+                requested_model,
+                started,
+                None,
+                Some(format!(
+                    "上游返回 HTTP {status_code}: {}",
+                    truncate_text(text.trim(), 500)
+                )),
+                Some(status_code),
+            );
+        }
+
+        let output = extract_test_output(&text);
+        if output.is_empty() {
+            return test_response(
+                false,
+                provider_id,
+                provider_label,
+                requested_model,
+                started,
+                None,
+                Some("上游响应为空".to_string()),
+                Some(status_code),
+            );
+        }
+
+        test_response(
+            true,
+            provider_id,
+            provider_label,
+            requested_model,
+            started,
+            Some(output),
+            None,
+            Some(status_code),
+        )
+    }
+
     pub async fn stop(&self) {
         if let Ok(mut guard) = self.shutdown_tx.lock() {
             if let Some(tx) = guard.take() {
@@ -340,6 +587,248 @@ struct ResolvedProviderConfig {
     source_model: Option<String>,
     custom_headers: Vec<CustomHeader>,
     strip_fields: Vec<String>,
+}
+
+fn test_response(
+    ok: bool,
+    provider_id: String,
+    provider_label: String,
+    model: String,
+    started: Instant,
+    output: Option<String>,
+    error: Option<String>,
+    status_code: Option<u16>,
+) -> TestProviderModelResponse {
+    TestProviderModelResponse {
+        ok,
+        provider_id,
+        provider_label,
+        model,
+        latency_ms: started.elapsed().as_millis(),
+        output,
+        error,
+        status_code,
+    }
+}
+
+fn validate_test_provider(
+    config: &AppConfig,
+    provider_id: &str,
+    model: &str,
+) -> Result<String, String> {
+    if let Some(provider) = config
+        .providers
+        .custom_providers
+        .iter()
+        .find(|item| item.id == provider_id)
+    {
+        if !provider.provider.enabled {
+            return Err(format!("Provider {} 未启用", provider.name));
+        }
+        if !provider_has_model(&provider.provider.models, model) {
+            return Err(format!("Provider {} 未配置模型 {model}", provider.name));
+        }
+        return Ok(provider.name.clone());
+    }
+
+    let (label, provider) = match provider_id {
+        "anthropic" => ("Anthropic", &config.providers.anthropic),
+        "glm" => ("GLM", &config.providers.glm),
+        "kimi" => ("Kimi", &config.providers.kimi),
+        "minimax" => ("MiniMax", &config.providers.minimax),
+        "deepseek" => ("DeepSeek", &config.providers.deepseek),
+        "litellm" => ("LiteLLM", &config.providers.litellm),
+        "cliproxyapi" => ("CLI Proxy API", &config.providers.cliproxyapi),
+        _ => return Err(format!("未找到 Provider: {provider_id}")),
+    };
+
+    if !provider.enabled {
+        return Err(format!("Provider {label} 未启用"));
+    }
+    if !provider_has_model(&provider.models, model) {
+        return Err(format!("Provider {label} 未配置模型 {model}"));
+    }
+    Ok(label.to_string())
+}
+
+fn provider_has_model(models: &[String], model: &str) -> bool {
+    let target = normalize_route_match_model(model);
+    !target.is_empty()
+        && models
+            .iter()
+            .any(|item| normalize_route_match_model(item) == target)
+}
+
+fn strip_1m_suffix(model: &str) -> String {
+    model
+        .replace("[1m]", "")
+        .replace("[1M]", "")
+        .trim()
+        .to_string()
+}
+
+fn test_chat_completions_url(base_url: &str) -> String {
+    let base = normalize_base_url_for_docker(base_url)
+        .trim_end_matches('/')
+        .to_string();
+    let lower = base.to_lowercase();
+    if lower.ends_with("/chat/completions") {
+        base
+    } else if lower.ends_with("/v1") {
+        format!("{base}/chat/completions")
+    } else {
+        format!("{base}/v1/chat/completions")
+    }
+}
+
+fn test_messages_url(base_url: &str) -> String {
+    let base = normalize_base_url_for_docker(base_url)
+        .trim_end_matches('/')
+        .to_string();
+    let lower = base.to_lowercase();
+    if lower.ends_with("/messages") {
+        base
+    } else if lower.ends_with("/v1") {
+        format!("{base}/messages")
+    } else {
+        format!("{base}/v1/messages")
+    }
+}
+
+fn skip_test_header(name: &str) -> bool {
+    matches!(
+        name.trim().to_ascii_lowercase().as_str(),
+        "host"
+            | "content-length"
+            | "content-type"
+            | "connection"
+            | "transfer-encoding"
+            | "authorization"
+            | "proxy-authorization"
+            | "x-api-key"
+            | "anthropic-api-key"
+            | "anthropic-beta"
+            | "x-request-id"
+    )
+}
+
+fn extract_test_output(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let Ok(value) = serde_json::from_str::<Value>(trimmed) else {
+        return truncate_text(trimmed, 500);
+    };
+
+    if let Some(text) = value
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+        .and_then(|item| item.get("message"))
+        .and_then(|message| message.get("content"))
+        .map(text_from_content_value)
+        .filter(|text| !text.is_empty())
+    {
+        return text;
+    }
+
+    if let Some(text) = value
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+        .and_then(|item| item.get("text"))
+        .map(text_from_content_value)
+        .filter(|text| !text.is_empty())
+    {
+        return text;
+    }
+
+    if let Some(text) = value
+        .get("content")
+        .map(text_from_content_value)
+        .filter(|text| !text.is_empty())
+    {
+        return text;
+    }
+
+    truncate_text(trimmed, 500)
+}
+
+fn text_from_content_value(value: &Value) -> String {
+    match value {
+        Value::String(text) => truncate_text(text.trim(), 500),
+        Value::Array(items) => truncate_text(
+            &items
+                .iter()
+                .map(text_from_content_value)
+                .filter(|text| !text.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            500,
+        ),
+        Value::Object(map) => map
+            .get("text")
+            .or_else(|| map.get("content"))
+            .map(text_from_content_value)
+            .unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+fn upstream_error_preview(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
+        let error = value.get("error");
+        let message = error
+            .and_then(|item| item.get("message"))
+            .and_then(Value::as_str)
+            .or_else(|| value.get("message").and_then(Value::as_str))
+            .map(|text| truncate_text(text, 200));
+        let kind = error
+            .and_then(|item| item.get("type"))
+            .and_then(Value::as_str)
+            .or_else(|| value.get("type").and_then(Value::as_str));
+        let code = error
+            .and_then(|item| item.get("code"))
+            .and_then(Value::as_str)
+            .or_else(|| value.get("code").and_then(Value::as_str));
+
+        let mut parts = Vec::new();
+        if let Some(kind) = kind.filter(|item| !item.is_empty()) {
+            parts.push(format!("type={}", truncate_text(kind, 80)));
+        }
+        if let Some(code) = code.filter(|item| !item.is_empty()) {
+            parts.push(format!("code={}", truncate_text(code, 80)));
+        }
+        if let Some(message) = message.filter(|item| !item.is_empty()) {
+            parts.push(format!("message={message}"));
+        }
+        if !parts.is_empty() {
+            return parts.join("; ");
+        }
+    }
+
+    "上游返回了非 JSON 错误体，已隐藏正文".to_string()
+}
+
+fn sanitize_logged_url(url: &str) -> String {
+    url.split(['?', '#']).next().unwrap_or(url).to_string()
+}
+
+fn truncate_text(text: &str, limit: usize) -> String {
+    let trimmed = text.trim();
+    let mut chars = trimmed.chars();
+    let mut output = chars.by_ref().take(limit).collect::<String>();
+    if chars.next().is_some() {
+        output.push('…');
+    }
+    output
 }
 
 fn resolution_source_to_route_kind(source: &str) -> Option<String> {
@@ -396,13 +885,13 @@ async fn proxy_handler(
     }
 
     let request_id = create_request_id(&headers);
+    let request_started = Instant::now();
     let body_text = String::from_utf8(body.to_vec()).unwrap_or_default();
     let content_type = read_header_value(&headers, "content-type").to_lowercase();
-    let is_json_like_body =
-        !body_text.trim().is_empty()
-            && (content_type.contains("application/json")
-                || body_text.trim_start().starts_with('{')
-                || body_text.trim_start().starts_with('['));
+    let is_json_like_body = !body_text.trim().is_empty()
+        && (content_type.contains("application/json")
+            || body_text.trim_start().starts_with('{')
+            || body_text.trim_start().starts_with('['));
     let parsed_body = if is_json_like_body {
         serde_json::from_str::<serde_json::Value>(&body_text).ok()
     } else {
@@ -417,21 +906,45 @@ async fn proxy_handler(
         .to_string();
 
     let app_config = manager.config_store.get_config();
-    let resolution = resolve_request_provider_config(&app_config, &requested_model, parsed_body.as_ref());
+    let resolution =
+        resolve_request_provider_config(&app_config, &requested_model, parsed_body.as_ref());
     let mut provider = match resolution {
         Ok(provider) => provider,
         Err(message) => {
-            manager.emit_log(
-                "error",
-                format!(
+            manager.emit_log_payload(ProxyLogPayload {
+                message: format!(
                     "[ERR][{request_id}] {message} | requested_model={}",
-                    if requested_model.is_empty() { "(empty)" } else { &requested_model }
+                    if requested_model.is_empty() {
+                        "(empty)"
+                    } else {
+                        &requested_model
+                    }
                 ),
+                r#type: "error".to_string(),
+                timestamp: Utc::now().to_rfc3339(),
+                request_id: Some(request_id.clone()),
+                provider_id: None,
+                provider_label: None,
+                model: Some(if requested_model.is_empty() {
+                    "unknown".to_string()
+                } else {
+                    requested_model.clone()
+                }),
+                route_kind: None,
+                token_usage: None,
+                status_code: Some(StatusCode::BAD_REQUEST.as_u16()),
+                upstream_url: None,
+                upstream_body_preview: None,
+                error_stage: Some("routeResolution".to_string()),
+                duration_ms: Some(request_started.elapsed().as_millis() as u64),
+            });
+            return json_response(
+                StatusCode::BAD_REQUEST,
+                serde_json::json!({
+                    "error": message,
+                    "requestId": request_id
+                }),
             );
-            return json_response(StatusCode::BAD_REQUEST, serde_json::json!({
-                "error": message,
-                "requestId": request_id
-            }));
         }
     };
 
@@ -460,6 +973,11 @@ async fn proxy_handler(
             model: Some(provider.model_name.clone()),
             route_kind: route_kind.clone(),
             token_usage: None,
+            status_code: None,
+            upstream_url: None,
+            upstream_body_preview: None,
+            error_stage: None,
+            duration_ms: Some(request_started.elapsed().as_millis() as u64),
         });
     };
 
@@ -468,9 +986,19 @@ async fn proxy_handler(
             "info",
             format!(
                 "[ROUTE][{request_id}] model_route_hit route={} source={} target={} provider={}",
-                provider.route_id.clone().unwrap_or_else(|| "unknown".into()),
-                provider.source_model.clone().unwrap_or_else(|| requested_model.clone()),
-                if provider.model_name.is_empty() { "(empty)" } else { &provider.model_name },
+                provider
+                    .route_id
+                    .clone()
+                    .unwrap_or_else(|| "unknown".into()),
+                provider
+                    .source_model
+                    .clone()
+                    .unwrap_or_else(|| requested_model.clone()),
+                if provider.model_name.is_empty() {
+                    "(empty)"
+                } else {
+                    &provider.model_name
+                },
                 provider.provider_label
             ),
         );
@@ -491,7 +1019,11 @@ async fn proxy_handler(
             format!(
                 "[ROUTE][{request_id}] provider_inferred provider={} requested_model={}",
                 provider.provider_label,
-                if requested_model.is_empty() { "(empty)" } else { &requested_model }
+                if requested_model.is_empty() {
+                    "(empty)"
+                } else {
+                    &requested_model
+                }
             ),
         );
     } else {
@@ -499,7 +1031,11 @@ async fn proxy_handler(
             "info",
             format!(
                 "[ROUTE][{request_id}] legacy_fallback requested_model={}",
-                if requested_model.is_empty() { "(empty)" } else { &requested_model }
+                if requested_model.is_empty() {
+                    "(empty)"
+                } else {
+                    &requested_model
+                }
             ),
         );
     }
@@ -508,19 +1044,30 @@ async fn proxy_handler(
     let incoming_search = uri
         .path_and_query()
         .map(|value| value.as_str())
-        .and_then(|value| value.split_once('?').map(|(_, search)| format!("?{search}")))
+        .and_then(|value| {
+            value
+                .split_once('?')
+                .map(|(_, search)| format!("?{search}"))
+        })
         .unwrap_or_default();
 
-    let should_use_openai_compat = openai::is_openai_chat_completions_path(&incoming_path)
-        && openai::is_anthropic_compatible_provider(&provider.provider_id, &provider.base_url);
+    let provider_uses_anthropic_compat =
+        openai::is_anthropic_compatible_provider(&provider.provider_id, &provider.base_url);
+    let should_use_openai_chat_compat =
+        openai::is_openai_chat_completions_path(&incoming_path) && provider_uses_anthropic_compat;
+    let should_use_openai_responses_compat =
+        openai::is_openai_responses_path(&incoming_path) && provider_uses_anthropic_compat;
+    let should_use_openai_compat =
+        should_use_openai_chat_compat || should_use_openai_responses_compat;
 
     let mut upstream_path = incoming_path.clone();
     let mut final_body = body_text.clone();
     let mut openai_stream_requested = false;
 
-    if should_use_openai_compat {
+    if should_use_openai_chat_compat {
         if let Some(parsed) = parsed_body.as_ref() {
-            let converted = openai::convert_openai_chat_request_to_anthropic(parsed, &provider.model_name);
+            let converted =
+                openai::convert_openai_chat_request_to_anthropic(parsed, &provider.model_name);
             openai_stream_requested = converted
                 .get("stream")
                 .and_then(serde_json::Value::as_bool)
@@ -532,6 +1079,21 @@ async fn proxy_handler(
                 format!("[MAP][{request_id}] OpenAI chat/completions -> Anthropic messages"),
             );
         }
+    } else if should_use_openai_responses_compat {
+        if let Some(parsed) = parsed_body.as_ref() {
+            let converted =
+                openai::convert_openai_responses_request_to_anthropic(parsed, &provider.model_name);
+            openai_stream_requested = converted
+                .get("stream")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            final_body = serde_json::to_string(&converted).unwrap_or_default();
+            upstream_path = "/v1/messages".into();
+            emit_request_log(
+                "info",
+                format!("[MAP][{request_id}] OpenAI responses -> Anthropic messages"),
+            );
+        }
     } else if !provider.model_name.is_empty() {
         if let Some(mut parsed) = parsed_body.clone() {
             parsed["model"] = serde_json::Value::String(provider.model_name.clone());
@@ -540,22 +1102,22 @@ async fn proxy_handler(
     }
 
     // 按 provider 配置剥离请求体字段
-    if !provider.strip_fields.is_empty() {
-        if let Some(mut parsed) = parsed_body.clone() {
-            let mut changed = false;
+    if !provider.strip_fields.is_empty() && !final_body.trim().is_empty() {
+        if let Ok(mut parsed) = serde_json::from_str::<serde_json::Value>(&final_body) {
+            let mut removed = Vec::new();
             for field in &provider.strip_fields {
                 if parsed.get(field).is_some() {
                     if let Some(obj) = parsed.as_object_mut() {
                         obj.remove(field);
+                        removed.push(field.clone());
                     }
-                    changed = true;
                 }
             }
-            if changed {
+            if !removed.is_empty() {
                 final_body = serde_json::to_string(&parsed).unwrap_or_default();
                 emit_request_log(
                     "info",
-                    format!("[STRIP][{request_id}] 移除字段: {}", provider.strip_fields.iter().filter(|f| parsed_body.as_ref().map_or(false, |b| b.get(*f).is_some())).cloned().collect::<Vec<_>>().join(", ")),
+                    format!("[STRIP][{request_id}] 移除字段: {}", removed.join(", ")),
                 );
             }
         }
@@ -568,14 +1130,19 @@ async fn proxy_handler(
         upstream_path.trim_start_matches('/'),
         incoming_search
     );
+    let log_target_url = sanitize_logged_url(&target_url);
 
     emit_request_log(
         "info",
         format!(
             "[REQ][{request_id}] {} {} | Model: {}",
             method,
-            target_url,
-            if provider.model_name.is_empty() { "unknown" } else { &provider.model_name }
+            log_target_url,
+            if provider.model_name.is_empty() {
+                "unknown"
+            } else {
+                &provider.model_name
+            }
         ),
     );
 
@@ -584,8 +1151,14 @@ async fn proxy_handler(
         if let Some(obj) = preview_value.as_object() {
             let keys: Vec<&str> = obj.keys().map(String::as_str).collect();
             let has_thinking = obj.get("thinking").map(|v| !v.is_null()).unwrap_or(false);
-            let has_output_config = obj.get("output_config").map(|v| !v.is_null()).unwrap_or(false);
-            let has_context_management = obj.get("context_management").map(|v| !v.is_null()).unwrap_or(false);
+            let has_output_config = obj
+                .get("output_config")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
+            let has_context_management = obj
+                .get("context_management")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
             let has_metadata = obj.get("metadata").map(|v| !v.is_null()).unwrap_or(false);
             let system_kind = obj
                 .get("system")
@@ -655,15 +1228,18 @@ async fn proxy_handler(
 
     // 按 new-api 已知坑过滤 beta：黑名单 + body 字段配对缺失剥离，避免 nil-deref panic
     if let Some(beta_text) = effective_beta.as_deref() {
-        let body_fields: std::collections::HashSet<String> = serde_json::from_str::<serde_json::Value>(&final_body)
-            .ok()
-            .and_then(|value| value.as_object().map(|map| {
-                map.iter()
-                    .filter(|(_, value)| !value.is_null())
-                    .map(|(key, _)| key.clone())
-                    .collect()
-            }))
-            .unwrap_or_default();
+        let body_fields: std::collections::HashSet<String> =
+            serde_json::from_str::<serde_json::Value>(&final_body)
+                .ok()
+                .and_then(|value| {
+                    value.as_object().map(|map| {
+                        map.iter()
+                            .filter(|(_, value)| !value.is_null())
+                            .map(|(key, _)| key.clone())
+                            .collect()
+                    })
+                })
+                .unwrap_or_default();
         let filtered = filter_anthropic_beta(beta_text, &body_fields);
         if filtered.dropped.len() > 0 {
             emit_request_log(
@@ -671,7 +1247,11 @@ async fn proxy_handler(
                 format!(
                     "[BETA][{request_id}] dropped={} kept={}",
                     filtered.dropped.join(","),
-                    if filtered.kept.is_empty() { "(none)" } else { &filtered.kept }
+                    if filtered.kept.is_empty() {
+                        "(none)"
+                    } else {
+                        &filtered.kept
+                    }
                 ),
             );
         }
@@ -766,21 +1346,40 @@ async fn proxy_handler(
             } else {
                 format!("{} | {}", err, hint)
             };
-            emit_request_log("error", format!("[ERR][{request_id}] 请求失败: {detail}"));
+            manager.emit_log_payload(ProxyLogPayload {
+                message: format!("[ERR][{request_id}] 请求失败: {detail}"),
+                r#type: "error".to_string(),
+                timestamp: Utc::now().to_rfc3339(),
+                request_id: Some(request_id.clone()),
+                provider_id: Some(provider.provider_id.clone()),
+                provider_label: Some(provider.provider_label.clone()),
+                model: Some(provider.model_name.clone()),
+                route_kind: route_kind.clone(),
+                token_usage: None,
+                status_code: Some(StatusCode::BAD_GATEWAY.as_u16()),
+                upstream_url: Some(log_target_url.clone()),
+                upstream_body_preview: None,
+                error_stage: Some("upstreamConnect".to_string()),
+                duration_ms: Some(request_started.elapsed().as_millis() as u64),
+            });
             if should_use_openai_compat {
                 return json_response(
                     StatusCode::BAD_GATEWAY,
                     openai::get_openai_error_payload(502, "{}"),
                 );
             }
-            return json_response(StatusCode::BAD_GATEWAY, serde_json::json!({
-                "error": "Proxy Error: upstream request failed",
-                "requestId": request_id
-            }));
+            return json_response(
+                StatusCode::BAD_GATEWAY,
+                serde_json::json!({
+                    "error": "Proxy Error: upstream request failed",
+                    "requestId": request_id
+                }),
+            );
         }
     };
 
-    let status = StatusCode::from_u16(upstream_response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let status = StatusCode::from_u16(upstream_response.status().as_u16())
+        .unwrap_or(StatusCode::BAD_GATEWAY);
     let upstream_headers = upstream_response.headers().clone();
     let response_content_type = upstream_response
         .headers()
@@ -792,8 +1391,39 @@ async fn proxy_handler(
     if should_use_openai_compat {
         if status.is_client_error() || status.is_server_error() {
             let body = upstream_response.text().await.unwrap_or_default();
-            emit_request_log("error", format!("[ERR][{request_id}] Upstream {} ", status.as_u16()));
-            return json_response(status, openai::get_openai_error_payload(status.as_u16(), &body));
+            let preview = upstream_error_preview(&body);
+            manager.emit_log_payload(ProxyLogPayload {
+                message: format!(
+                    "[ERR][{request_id}] Upstream {} body_preview={}",
+                    status.as_u16(),
+                    if preview.is_empty() {
+                        "(empty)"
+                    } else {
+                        "available"
+                    }
+                ),
+                r#type: "error".to_string(),
+                timestamp: Utc::now().to_rfc3339(),
+                request_id: Some(request_id.clone()),
+                provider_id: Some(provider.provider_id.clone()),
+                provider_label: Some(provider.provider_label.clone()),
+                model: Some(provider.model_name.clone()),
+                route_kind: route_kind.clone(),
+                token_usage: None,
+                status_code: Some(status.as_u16()),
+                upstream_url: Some(log_target_url.clone()),
+                upstream_body_preview: if preview.is_empty() {
+                    None
+                } else {
+                    Some(preview)
+                },
+                error_stage: Some("openaiCompat".to_string()),
+                duration_ms: Some(request_started.elapsed().as_millis() as u64),
+            });
+            return json_response(
+                status,
+                openai::get_openai_error_payload(status.as_u16(), &body),
+            );
         }
 
         if openai_stream_requested || response_content_type.contains("text/event-stream") {
@@ -802,10 +1432,16 @@ async fn proxy_handler(
             let provider_id_for_usage = provider.provider_id.clone();
             let provider_label_for_usage = provider.provider_label.clone();
             let model_for_usage = provider.model_name.clone();
-            let stream = openai::proxy_anthropic_stream_as_openai(
-                upstream_response.bytes_stream(),
-                provider.model_name.clone(),
-                Some(Arc::new(move |usage: TokenUsagePayload| {
+            let manager_for_stream_error = manager.clone();
+            let request_id_for_stream_error = request_id.clone();
+            let provider_id_for_stream_error = provider.provider_id.clone();
+            let provider_label_for_stream_error = provider.provider_label.clone();
+            let model_for_stream_error = provider.model_name.clone();
+            let route_kind_for_stream_error = route_kind.clone();
+            let target_url_for_stream_error = log_target_url.clone();
+            let stream_started = request_started;
+            let usage_callback: Arc<dyn Fn(TokenUsagePayload) + Send + Sync> =
+                Arc::new(move |usage: TokenUsagePayload| {
                     manager_for_usage.record_token_usage(
                         &request_id_for_usage,
                         &provider_id_for_usage,
@@ -813,18 +1449,60 @@ async fn proxy_handler(
                         &model_for_usage,
                         usage,
                     );
-                })),
-            );
-            let mut response = Response::new(Body::from_stream(stream));
+                });
+            let error_callback: Arc<dyn Fn(String) + Send + Sync> =
+                Arc::new(move |error: String| {
+                    manager_for_stream_error.emit_log_payload(ProxyLogPayload {
+                        message: format!(
+                            "[ERR][{request_id_for_stream_error}] 上游流中断: {error}"
+                        ),
+                        r#type: "error".to_string(),
+                        timestamp: Utc::now().to_rfc3339(),
+                        request_id: Some(request_id_for_stream_error.clone()),
+                        provider_id: Some(provider_id_for_stream_error.clone()),
+                        provider_label: Some(provider_label_for_stream_error.clone()),
+                        model: Some(model_for_stream_error.clone()),
+                        route_kind: route_kind_for_stream_error.clone(),
+                        token_usage: None,
+                        status_code: None,
+                        upstream_url: Some(target_url_for_stream_error.clone()),
+                        upstream_body_preview: None,
+                        error_stage: Some("upstreamStream".to_string()),
+                        duration_ms: Some(stream_started.elapsed().as_millis() as u64),
+                    });
+                });
+            let response_body = if should_use_openai_responses_compat {
+                Body::from_stream(openai::proxy_anthropic_stream_as_openai_responses(
+                    upstream_response.bytes_stream(),
+                    provider.model_name.clone(),
+                    Some(usage_callback.clone()),
+                    Some(error_callback.clone()),
+                ))
+            } else {
+                Body::from_stream(openai::proxy_anthropic_stream_as_openai(
+                    upstream_response.bytes_stream(),
+                    provider.model_name.clone(),
+                    Some(usage_callback.clone()),
+                    Some(error_callback.clone()),
+                ))
+            };
+            let mut response = Response::new(response_body);
             *response.status_mut() = status;
             add_cors_headers(response.headers_mut());
             response.headers_mut().insert(
                 "content-type",
                 HeaderValue::from_static("text/event-stream; charset=utf-8"),
             );
-            response.headers_mut().insert("cache-control", HeaderValue::from_static("no-cache"));
-            response.headers_mut().insert("x-accel-buffering", HeaderValue::from_static("no"));
-            emit_request_log("info", format!("[RES][{request_id}] status={}", status.as_u16()));
+            response
+                .headers_mut()
+                .insert("cache-control", HeaderValue::from_static("no-cache"));
+            response
+                .headers_mut()
+                .insert("x-accel-buffering", HeaderValue::from_static("no"));
+            emit_request_log(
+                "info",
+                format!("[RES][{request_id}] status={}", status.as_u16()),
+            );
             return response;
         }
 
@@ -840,27 +1518,58 @@ async fn proxy_handler(
                         token_usage,
                     );
                 }
-                openai::convert_anthropic_message_to_openai_response(&value, &provider.model_name)
+                if should_use_openai_responses_compat {
+                    openai::convert_anthropic_message_to_openai_responses_response(
+                        &value,
+                        &provider.model_name,
+                    )
+                } else {
+                    openai::convert_anthropic_message_to_openai_response(
+                        &value,
+                        &provider.model_name,
+                    )
+                }
             })
             .unwrap_or_else(|_| serde_json::Value::String(response_body));
-        emit_request_log("info", format!("[RES][{request_id}] status={}", status.as_u16()));
+        emit_request_log(
+            "info",
+            format!("[RES][{request_id}] status={}", status.as_u16()),
+        );
         return json_response(status, transformed);
     }
 
     // 非 OpenAI 兼容路径：上游返回错误状态时，捕获响应体并打印预览，便于定位
     if status.is_client_error() || status.is_server_error() {
         let bytes = upstream_response.bytes().await.unwrap_or_default();
-        let preview = String::from_utf8_lossy(&bytes);
-        let trimmed = preview.trim();
-        let snippet: String = trimmed.chars().take(600).collect();
-        emit_request_log(
-            "error",
-            format!(
+        let preview = upstream_error_preview(&String::from_utf8_lossy(&bytes));
+        manager.emit_log_payload(ProxyLogPayload {
+            message: format!(
                 "[ERR][{request_id}] Upstream {} body={}",
                 status.as_u16(),
-                if snippet.is_empty() { "(empty)" } else { &snippet }
+                if preview.is_empty() {
+                    "(empty)"
+                } else {
+                    &preview
+                }
             ),
-        );
+            r#type: "error".to_string(),
+            timestamp: Utc::now().to_rfc3339(),
+            request_id: Some(request_id.clone()),
+            provider_id: Some(provider.provider_id.clone()),
+            provider_label: Some(provider.provider_label.clone()),
+            model: Some(provider.model_name.clone()),
+            route_kind: route_kind.clone(),
+            token_usage: None,
+            status_code: Some(status.as_u16()),
+            upstream_url: Some(log_target_url.clone()),
+            upstream_body_preview: if preview.is_empty() {
+                None
+            } else {
+                Some(preview)
+            },
+            error_stage: Some("upstreamStatus".to_string()),
+            duration_ms: Some(request_started.elapsed().as_millis() as u64),
+        });
         let mut response = Response::new(Body::from(bytes));
         *response.status_mut() = status;
         add_cors_headers(response.headers_mut());
@@ -874,10 +1583,19 @@ async fn proxy_handler(
         let provider_id_for_usage = provider.provider_id.clone();
         let provider_label_for_usage = provider.provider_label.clone();
         let model_for_usage = provider.model_name.clone();
+        let manager_for_stream_error = manager.clone();
+        let request_id_for_stream_error = request_id.clone();
+        let provider_id_for_stream_error = provider.provider_id.clone();
+        let provider_label_for_stream_error = provider.provider_label.clone();
+        let model_for_stream_error = provider.model_name.clone();
+        let route_kind_for_stream_error = route_kind.clone();
+        let target_url_for_stream_error = target_url.clone();
+        let stream_started = request_started;
         let raw_stream = stream! {
             let mut upstream = upstream_response.bytes_stream();
             let mut frame_buffer = String::new();
             let mut token_usage = None;
+            let mut sanitizer = openai::AnthropicReadToolSseSanitizerState::default();
             while let Some(item) = upstream.next().await {
                 if let Ok(chunk) = item {
                     frame_buffer.push_str(&String::from_utf8_lossy(&chunk));
@@ -886,14 +1604,33 @@ async fn proxy_handler(
                         let boundary_len = if frame_buffer[boundary_index..].starts_with("\r\n\r\n") { 4 } else { 2 };
                         frame_buffer = frame_buffer[boundary_index + boundary_len..].to_string();
                         merge_token_usage(&mut token_usage, parse_sse_usage_frame(&frame));
+                        let sanitized = openai::sanitize_anthropic_read_tool_sse_frame(&frame, &mut sanitizer);
+                        yield Ok::<Bytes, Infallible>(Bytes::from(sanitized));
                     }
-                    yield Ok::<Bytes, Infallible>(chunk);
-                } else {
+                } else if let Err(err) = item {
+                    manager_for_stream_error.emit_log_payload(ProxyLogPayload {
+                        message: format!("[ERR][{request_id_for_stream_error}] 上游流中断: {err}"),
+                        r#type: "error".to_string(),
+                        timestamp: Utc::now().to_rfc3339(),
+                        request_id: Some(request_id_for_stream_error.clone()),
+                        provider_id: Some(provider_id_for_stream_error.clone()),
+                        provider_label: Some(provider_label_for_stream_error.clone()),
+                        model: Some(model_for_stream_error.clone()),
+                        route_kind: route_kind_for_stream_error.clone(),
+                        token_usage: None,
+                        status_code: None,
+                        upstream_url: Some(target_url_for_stream_error.clone()),
+                        upstream_body_preview: None,
+                        error_stage: Some("upstreamStream".to_string()),
+                        duration_ms: Some(stream_started.elapsed().as_millis() as u64),
+                    });
                     break;
                 }
             }
             if !frame_buffer.trim().is_empty() {
                 merge_token_usage(&mut token_usage, parse_sse_usage_frame(&frame_buffer));
+                let sanitized = openai::sanitize_anthropic_read_tool_sse_frame(&frame_buffer, &mut sanitizer);
+                yield Ok::<Bytes, Infallible>(Bytes::from(sanitized));
             }
             if let Some(usage) = token_usage {
                 manager_for_usage.record_token_usage(
@@ -909,13 +1646,16 @@ async fn proxy_handler(
         *response.status_mut() = status;
         add_cors_headers(response.headers_mut());
         copy_response_headers(response.headers_mut(), &upstream_headers);
-        emit_request_log("info", format!("[RES][{request_id}] status={}", status.as_u16()));
+        emit_request_log(
+            "info",
+            format!("[RES][{request_id}] status={}", status.as_u16()),
+        );
         return response;
     }
 
-    let bytes = upstream_response.bytes().await.unwrap_or_default();
+    let mut bytes = upstream_response.bytes().await.unwrap_or_default();
     if response_content_type.contains("application/json") {
-        if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+        if let Ok(mut value) = serde_json::from_slice::<serde_json::Value>(&bytes) {
             if let Some(token_usage) = extract_token_usage_from_value(&value) {
                 manager.record_token_usage(
                     &request_id,
@@ -925,13 +1665,19 @@ async fn proxy_handler(
                     token_usage,
                 );
             }
+            if openai::sanitize_anthropic_read_tool_pages(&mut value) {
+                bytes = Bytes::from(serde_json::to_vec(&value).unwrap_or_else(|_| bytes.to_vec()));
+            }
         }
     }
     let mut response = Response::new(Body::from(bytes));
     *response.status_mut() = status;
     add_cors_headers(response.headers_mut());
     copy_response_headers(response.headers_mut(), &upstream_headers);
-    emit_request_log("info", format!("[RES][{request_id}] status={}", status.as_u16()));
+    emit_request_log(
+        "info",
+        format!("[RES][{request_id}] status={}", status.as_u16()),
+    );
     response
 }
 
@@ -944,11 +1690,9 @@ fn resolve_request_provider_config(
 
     // gateway 模式：仅走 modelRoutes；routes 模式：跳过 modelRoutes 直接走 router 分类
     if !is_routes_mode {
-        if let Some(route) = config
-            .model_routes
-            .iter()
-            .find(|route| route.enabled && route_matches_requested_model(&route.source_model, requested_model))
-        {
+        if let Some(route) = config.model_routes.iter().find(|route| {
+            route.enabled && route_matches_requested_model(&route.source_model, requested_model)
+        }) {
             let routed_model = resolve_route_target_model(config, route, requested_model);
             let provider = build_provider_config(
                 config,
@@ -975,7 +1719,11 @@ fn resolve_request_provider_config(
             }
 
             if router_target_active(&config.router.web_search) && body_has_web_search_tool(body) {
-                return resolve_router_target(config, &config.router.web_search, "router:webSearch");
+                return resolve_router_target(
+                    config,
+                    &config.router.web_search,
+                    "router:webSearch",
+                );
             }
 
             if router_target_active(&config.router.think) && body_has_thinking(body) {
@@ -985,12 +1733,18 @@ fn resolve_request_provider_config(
             if router_target_active(&config.router.long_context) {
                 let estimated = estimate_input_tokens(body);
                 if estimated > u64::from(config.router.long_context_threshold) {
-                    return resolve_router_target(config, &config.router.long_context, "router:longContext");
+                    return resolve_router_target(
+                        config,
+                        &config.router.long_context,
+                        "router:longContext",
+                    );
                 }
             }
         }
 
-        if router_target_active(&config.router.background) && is_background_requested_model(requested_model) {
+        if router_target_active(&config.router.background)
+            && is_background_requested_model(requested_model)
+        {
             return resolve_router_target(config, &config.router.background, "router:background");
         }
 
@@ -1003,12 +1757,15 @@ fn resolve_request_provider_config(
     let (provider_id, model_name) = if let Some(parts) = fallback.split_once(':') {
         parts
     } else if fallback == "pass" {
-        if let Some(inferred) = infer_provider_config_from_enabled_models(config, requested_model)? {
+        if let Some(inferred) = infer_provider_config_from_enabled_models(config, requested_model)?
+        {
             return Ok(inferred);
         }
         return Err("未命中模型路由，且默认回退映射未配置".to_string());
     } else {
-        return Err(format!("未命中模型路由，且默认回退 Provider 配置无效: {fallback}"));
+        return Err(format!(
+            "未命中模型路由，且默认回退 Provider 配置无效: {fallback}"
+        ));
     };
 
     let mut provider = build_provider_config(config, provider_id, model_name, None, None, None)?;
@@ -1065,7 +1822,12 @@ fn latest_routable_message_content<'a>(
                 .map(|role| role.eq_ignore_ascii_case("user"))
                 .unwrap_or(false)
         })
-        .or_else(|| messages.iter().rev().find(|message| message.get("content").is_some()))
+        .or_else(|| {
+            messages
+                .iter()
+                .rev()
+                .find(|message| message.get("content").is_some())
+        })
         .and_then(|message| message.get("content"))
 }
 
@@ -1236,7 +1998,11 @@ fn infer_provider_config_from_enabled_models(
     Ok(Some(provider))
 }
 
-fn resolve_route_target_model(config: &AppConfig, route: &crate::types::ModelRoute, requested_model: &str) -> String {
+fn resolve_route_target_model(
+    config: &AppConfig,
+    route: &crate::types::ModelRoute,
+    requested_model: &str,
+) -> String {
     let explicit_target = route.target_model.trim();
     if !explicit_target.is_empty() {
         return explicit_target.to_string();
@@ -1304,7 +2070,12 @@ fn build_provider_config(
         return Err("providerId 不能为空".into());
     }
 
-    if let Some(custom) = config.providers.custom_providers.iter().find(|item| item.id == provider_id) {
+    if let Some(custom) = config
+        .providers
+        .custom_providers
+        .iter()
+        .find(|item| item.id == provider_id)
+    {
         let base_url = override_base_url
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned)
@@ -1312,9 +2083,15 @@ fn build_provider_config(
             .unwrap_or_default();
         return Ok(ResolvedProviderConfig {
             provider_id: provider_id.into(),
-            provider_label: provider_label.filter(|value| !value.is_empty()).unwrap_or(&custom.name).to_string(),
+            provider_label: provider_label
+                .filter(|value| !value.is_empty())
+                .unwrap_or(&custom.name)
+                .to_string(),
             base_url,
-            api_key: override_api_key.filter(|value| !value.is_empty()).unwrap_or(&custom.provider.api_key).to_string(),
+            api_key: override_api_key
+                .filter(|value| !value.is_empty())
+                .unwrap_or(&custom.provider.api_key)
+                .to_string(),
             model_name: model_name.trim().to_string(),
             resolution_source: "legacyMapping",
             route_id: None,
@@ -1343,9 +2120,15 @@ fn build_provider_config(
 
     Ok(ResolvedProviderConfig {
         provider_id: provider_id.into(),
-        provider_label: provider_label.filter(|value| !value.is_empty()).unwrap_or(provider_id).to_string(),
+        provider_label: provider_label
+            .filter(|value| !value.is_empty())
+            .unwrap_or(provider_id)
+            .to_string(),
         base_url,
-        api_key: override_api_key.filter(|value| !value.is_empty()).unwrap_or(&provider.api_key).to_string(),
+        api_key: override_api_key
+            .filter(|value| !value.is_empty())
+            .unwrap_or(&provider.api_key)
+            .to_string(),
         model_name: model_name.trim().to_string(),
         resolution_source: "legacyMapping",
         route_id: None,
@@ -1439,8 +2222,16 @@ fn parse_sse_usage_frame(frame: &str) -> Option<TokenUsagePayload> {
 
     let payload = serde_json::from_str::<serde_json::Value>(&data).ok()?;
     extract_token_usage_from_value(&payload)
-        .or_else(|| payload.get("message").and_then(extract_token_usage_from_value))
-        .or_else(|| payload.get("delta").and_then(extract_token_usage_from_value))
+        .or_else(|| {
+            payload
+                .get("message")
+                .and_then(extract_token_usage_from_value)
+        })
+        .or_else(|| {
+            payload
+                .get("delta")
+                .and_then(extract_token_usage_from_value)
+        })
 }
 
 fn wildcard_match(pattern: &str, value: &str) -> bool {
@@ -1598,13 +2389,15 @@ struct FilteredBeta {
 }
 
 // new-api 对未知 beta 或 beta/body 字段不匹配会 nil-deref，提前剥离
-fn filter_anthropic_beta(value: &str, body_fields: &std::collections::HashSet<String>) -> FilteredBeta {
+fn filter_anthropic_beta(
+    value: &str,
+    body_fields: &std::collections::HashSet<String>,
+) -> FilteredBeta {
     // 无条件黑名单：未识别就 panic 的 beta
     const BETA_REMOVE: &[&str] = &["structured-outputs-2025-12-15"];
     // beta -> 必需 body 字段；body 缺则剥离该 beta
     const BETA_REQUIRES_FIELD: &[(&str, &str)] = &[
         ("interleaved-thinking-2025-05-14", "thinking"),
-        ("context-1m-2025-08-07", "thinking"),
         ("redact-thinking-2026-02-12", "thinking"),
         ("context-management-2025-06-27", "context_management"),
         ("effort-2025-11-24", "output_config"),
@@ -1618,7 +2411,10 @@ fn filter_anthropic_beta(value: &str, body_fields: &std::collections::HashSet<St
             continue;
         }
         let lower = flag.to_ascii_lowercase();
-        if BETA_REMOVE.iter().any(|item| item.eq_ignore_ascii_case(&lower)) {
+        if BETA_REMOVE
+            .iter()
+            .any(|item| item.eq_ignore_ascii_case(&lower))
+        {
             dropped.push(flag.to_string());
             continue;
         }

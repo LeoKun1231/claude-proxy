@@ -10,11 +10,10 @@ use serde_json::{json, Map, Value};
 use crate::types::{
     AppConfig, CustomHeader, CustomProviderData, LegacyMapping, ModelRoute, ProviderConfigData,
     Providers, RouterConfig, RouterTarget, Settings, DEFAULT_LONG_CONTEXT_THRESHOLD,
-    DEFAULT_PROXY_PORT,
-    ROUTING_MODE_GATEWAY, ROUTING_MODE_ROUTES,
+    DEFAULT_PROXY_PORT, DEFAULT_TEST_PROMPT, ROUTING_MODE_GATEWAY, ROUTING_MODE_ROUTES,
 };
 
-const CURRENT_CONFIG_VERSION: u32 = 5;
+const CURRENT_CONFIG_VERSION: u32 = 6;
 pub const BUILTIN_PROVIDER_KEYS: [&str; 7] = [
     "anthropic",
     "glm",
@@ -138,7 +137,8 @@ fn normalize_config_value(value: &Value) -> AppConfig {
         .get("modelRoutes")
         .and_then(|value| value.as_array())
         .map(|items| {
-            items.iter()
+            items
+                .iter()
                 .enumerate()
                 .map(|(index, item)| normalize_model_route(item, index))
                 .collect::<Vec<_>>()
@@ -146,18 +146,23 @@ fn normalize_config_value(value: &Value) -> AppConfig {
         .unwrap_or_default();
 
     let providers = Providers {
-        anthropic: normalize_provider_data(providers_value.and_then(|value| value.get("anthropic"))),
+        anthropic: normalize_provider_data(
+            providers_value.and_then(|value| value.get("anthropic")),
+        ),
         glm: normalize_provider_data(providers_value.and_then(|value| value.get("glm"))),
         kimi: normalize_provider_data(providers_value.and_then(|value| value.get("kimi"))),
         minimax: normalize_provider_data(providers_value.and_then(|value| value.get("minimax"))),
         deepseek: normalize_provider_data(providers_value.and_then(|value| value.get("deepseek"))),
         litellm: normalize_provider_data(providers_value.and_then(|value| value.get("litellm"))),
-        cliproxyapi: normalize_provider_data(providers_value.and_then(|value| value.get("cliproxyapi"))),
+        cliproxyapi: normalize_provider_data(
+            providers_value.and_then(|value| value.get("cliproxyapi")),
+        ),
         custom_providers: providers_value
             .and_then(|value| value.get("customProviders"))
             .and_then(|value| value.as_array())
             .map(|items| {
-                items.iter()
+                items
+                    .iter()
                     .enumerate()
                     .map(|(index, item)| normalize_custom_provider(item, index))
                     .collect::<Vec<_>>()
@@ -202,10 +207,17 @@ fn normalize_config_value(value: &Value) -> AppConfig {
                     .and_then(|value| value.get("proxyPort")),
             )
             .unwrap_or(DEFAULT_PROXY_PORT),
-            theme: normalize_theme(
+            theme: normalize_theme(merged.get("settings").and_then(|value| value.get("theme"))),
+            default_test_prompt: normalize_string(
                 merged
                     .get("settings")
-                    .and_then(|value| value.get("theme")),
+                    .and_then(|value| value.get("defaultTestPrompt")),
+                DEFAULT_TEST_PROMPT,
+            ),
+            gateway_model_order: normalize_string_array(
+                merged
+                    .get("settings")
+                    .and_then(|value| value.get("gatewayModelOrder")),
             ),
         },
     }
@@ -244,7 +256,8 @@ fn normalize_string_array(value: Option<&Value>) -> Vec<String> {
     value
         .and_then(|item| item.as_array())
         .map(|items| {
-            items.iter()
+            items
+                .iter()
                 .filter_map(|item| item.as_str())
                 .map(str::trim)
                 .filter(|item| !item.is_empty())
@@ -306,7 +319,10 @@ fn normalize_custom_headers(value: Option<&Value>) -> Vec<CustomHeader> {
                         return None;
                     }
                     let header_value = normalize_string(entry.get("value"), "");
-                    Some(CustomHeader { name, value: header_value })
+                    Some(CustomHeader {
+                        name,
+                        value: header_value,
+                    })
                 })
                 .collect()
         })
@@ -419,7 +435,9 @@ fn normalize_router(
         default: normalize_router_target(router_value.and_then(|value| value.get("default"))),
         background: normalize_router_target(router_value.and_then(|value| value.get("background"))),
         think: normalize_router_target(router_value.and_then(|value| value.get("think"))),
-        long_context: normalize_router_target(router_value.and_then(|value| value.get("longContext"))),
+        long_context: normalize_router_target(
+            router_value.and_then(|value| value.get("longContext")),
+        ),
         long_context_threshold: threshold,
         web_search: normalize_router_target(router_value.and_then(|value| value.get("webSearch"))),
         image: normalize_router_target(router_value.and_then(|value| value.get("image"))),

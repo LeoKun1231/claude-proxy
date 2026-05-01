@@ -81,8 +81,25 @@
     width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
-    background: transparent; /* Rely on body bg to give solid warm dark canvas without cold radial */
+    background: transparent;
     color: hsl(var(--foreground));
+  }
+
+  .noise-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  .dark .app-theme {
+    background: linear-gradient(135deg, hsl(20 8% 12%) 0%, hsl(20 5% 8%) 100%);
+  }
+  
+  .app-theme {
+    background: linear-gradient(135deg, hsl(0 0% 98%) 0%, hsl(240 5.9% 90%) 100%);
   }
 }
 

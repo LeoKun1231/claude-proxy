@@ -14,7 +14,21 @@ export interface LogItem {
     providerLabel?: string;
     model?: string;
     routeKind?: string;
+    statusCode?: number;
+    upstreamUrl?: string;
+    upstreamBodyPreview?: string;
+    errorStage?: string;
+    durationMs?: number;
     repeatCount?: number;
+}
+
+type LogType = 'info' | 'warn' | 'error';
+
+type RawLogPayload = Omit<LogItem, 'id' | 'repeatCount' | 'type'> & { type: string };
+
+function normalizeLogType(type: string): LogType {
+    if (type === 'warn' || type === 'error') return type;
+    return 'info';
 }
 
 interface UseLogsOptions {
@@ -39,7 +53,7 @@ function mergeLogCollections(history: LogItem[], current: LogItem[], maxLogs: nu
     const merged: LogItem[] = [];
 
     const pushLog = (log: LogItem) => {
-        const key = `${log.timestamp}|${log.type}|${log.message}|${log.requestId || ''}|${log.providerLabel || ''}|${log.model || ''}|${log.routeKind || ''}`;
+        const key = `${log.timestamp}|${log.type}|${log.message}|${log.requestId || ''}|${log.providerLabel || ''}|${log.model || ''}|${log.routeKind || ''}|${log.statusCode || ''}|${log.errorStage || ''}|${log.upstreamUrl || ''}`;
         if (seen.has(key)) {
             return;
         }
@@ -86,35 +100,55 @@ function mergeRepeatLog(logList: LogItem[], incomingLog: LogItem): LogItem[] {
     return [...logList, incomingLog];
 }
 
+function normalizeLogItem(item: RawLogPayload): LogItem {
+    return {
+        id: `log_${++logIdCounter}_${Date.now()}`,
+        message: item.message,
+        type: normalizeLogType(item.type),
+        timestamp: item.timestamp,
+        requestId: item.requestId,
+        providerId: item.providerId,
+        providerLabel: item.providerLabel,
+        model: item.model,
+        routeKind: item.routeKind,
+        statusCode: item.statusCode,
+        upstreamUrl: item.upstreamUrl,
+        upstreamBodyPreview: item.upstreamBodyPreview,
+        errorStage: item.errorStage,
+        durationMs: item.durationMs,
+    };
+}
+
+function normalizeLogHistory(items: RawLogPayload[], maxLogs: number) {
+    let historyLogs: LogItem[] = [];
+    for (const item of items.slice(-maxLogs)) {
+        historyLogs = mergeRepeatLog(historyLogs, normalizeLogItem(item));
+    }
+    return historyLogs;
+}
+
 export function useLogs(options: UseLogsOptions = {}) {
     const maxLogs = options.maxLogs ?? defaultOptions.maxLogs!;
     const autoScroll = options.autoScroll ?? defaultOptions.autoScroll!;
     const isDesktopRuntime = typeof window !== 'undefined'
-        && (import.meta.env.VITE_DESKTOP_RUNTIME === 'tauri' || '__TAURI_INTERNALS__' in window);
+        && typeof (window as any).__TAURI_INTERNALS__?.invoke === 'function';
     const isWebRuntime = typeof window !== 'undefined' && !isDesktopRuntime;
 
     const [logs, setLogs] = useState<LogItem[]>([]);
     const [isPaused, setIsPaused] = useState(false);
+    const isPausedRef = useRef(false);
     const pendingLogsRef = useRef<LogItem[]>([]);
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-    // 添加日志
-    const addLog = useCallback((data: {
-        message: string;
-        type: 'info' | 'warn' | 'error';
-        timestamp: string;
-        requestId?: string;
-        providerId?: string;
-        providerLabel?: string;
-        model?: string;
-        routeKind?: string;
-    }) => {
-        const newLog: LogItem = {
-            id: `log_${++logIdCounter}_${Date.now()}`,
-            ...data,
-        };
+    useEffect(() => {
+        isPausedRef.current = isPaused;
+    }, [isPaused]);
 
-        if (isPaused) {
+    // 添加日志
+    const addLog = useCallback((data: RawLogPayload) => {
+        const newLog = normalizeLogItem(data);
+
+        if (isPausedRef.current) {
             // 暂停时缓存日志
             const mergedPending = mergeRepeatLog(pendingLogsRef.current, newLog);
             pendingLogsRef.current = mergedPending.length > maxLogs
@@ -130,7 +164,7 @@ export function useLogs(options: UseLogsOptions = {}) {
                 return updated;
             });
         }
-    }, [isPaused, maxLogs]);
+    }, [maxLogs]);
 
     // 清空日志
     const clearLogs = useCallback(() => {
@@ -193,17 +227,8 @@ export function useLogs(options: UseLogsOptions = {}) {
     useEffect(() => {
         let cancelled = false;
 
-        const handleLog = (data: any) => {
-            addLog(data as {
-                message: string;
-                type: 'info' | 'warn' | 'error';
-                timestamp: string;
-                requestId?: string;
-                providerId?: string;
-                providerLabel?: string;
-                model?: string;
-                routeKind?: string;
-            });
+        const handleLog = (data: RawLogPayload) => {
+            addLog(data);
         };
 
         if (isWebRuntime) {
@@ -219,6 +244,11 @@ export function useLogs(options: UseLogsOptions = {}) {
                     providerLabel?: string;
                     model?: string;
                     routeKind?: string;
+                    statusCode?: number;
+                    upstreamUrl?: string;
+                    upstreamBodyPreview?: string;
+                    errorStage?: string;
+                    durationMs?: number;
                 };
                 handleLog(payload);
             });
@@ -228,16 +258,7 @@ export function useLogs(options: UseLogsOptions = {}) {
                     if (!response.ok) {
                         throw new Error(`请求失败: ${response.status}`);
                     }
-                    return response.json() as Promise<Array<{
-                        message: string;
-                        type: 'info' | 'warn' | 'error';
-                        timestamp: string;
-                        requestId?: string;
-                        providerId?: string;
-                        providerLabel?: string;
-                        model?: string;
-                        routeKind?: string;
-                    }>>;
+                    return response.json() as Promise<RawLogPayload[]>;
                 })
                 .then((items) => {
                     if (cancelled || !Array.isArray(items)) {
@@ -245,13 +266,7 @@ export function useLogs(options: UseLogsOptions = {}) {
                     }
 
                     setLogs((currentLogs) => {
-                        let historyLogs: LogItem[] = [];
-                        for (const item of items.slice(-maxLogs)) {
-                            historyLogs = mergeRepeatLog(historyLogs, {
-                                id: `log_${++logIdCounter}_${Date.now()}`,
-                                ...item,
-                            });
-                        }
+                        const historyLogs = normalizeLogHistory(items, maxLogs);
                         return mergeLogCollections(historyLogs, currentLogs, maxLogs);
                     });
                 })
@@ -268,23 +283,8 @@ export function useLogs(options: UseLogsOptions = {}) {
         void window.electronAPI.getLogs?.()
             .then((items) => {
                 if (cancelled || !Array.isArray(items)) return;
-                setLogs(() => {
-                    let historyLogs: LogItem[] = [];
-                    for (const item of items.slice(-maxLogs)) {
-                            historyLogs = mergeRepeatLog(historyLogs, {
-                                id: `log_${++logIdCounter}_${Date.now()}`,
-                                message: item.message,
-                                type: item.type as 'info' | 'warn' | 'error',
-                                timestamp: item.timestamp,
-                                requestId: item.requestId,
-                                providerId: item.providerId,
-                                providerLabel: item.providerLabel,
-                                model: item.model,
-                                routeKind: item.routeKind,
-                            });
-                    }
-                    return historyLogs;
-                });
+                const historyLogs = normalizeLogHistory(items, maxLogs);
+                setLogs(currentLogs => mergeLogCollections(historyLogs, currentLogs, maxLogs));
             })
             .catch(() => {
                 // 桌面模式历史日志加载失败时不阻断实时监听
@@ -292,8 +292,22 @@ export function useLogs(options: UseLogsOptions = {}) {
 
         window.electronAPI.onProxyLog(handleLog);
 
+        const syncTimer = window.setInterval(() => {
+            if (isPausedRef.current) return;
+            void window.electronAPI.getLogs?.()
+                .then((items) => {
+                    if (cancelled || !Array.isArray(items)) return;
+                    const historyLogs = normalizeLogHistory(items, maxLogs);
+                    setLogs(currentLogs => mergeLogCollections(historyLogs, currentLogs, maxLogs));
+                })
+                .catch(() => {
+                    // 实时事件卡住时兜底同步，失败不打断页面
+                });
+        }, 3000);
+
         return () => {
             cancelled = true;
+            window.clearInterval(syncTimer);
             window.electronAPI.removeProxyLogListener(handleLog);
         };
     }, [addLog, isWebRuntime, maxLogs]);

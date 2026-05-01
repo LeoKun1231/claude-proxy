@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    Boxes,
-    Brain,
-    FileText,
-    Globe,
-    Image as ImageIcon,
-    LayoutDashboard,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { toast } from 'sonner';
 import {
     createDefaultRouterConfig,
@@ -29,7 +21,7 @@ interface CategoryMeta {
     key: RouterCategoryKey;
     label: string;
     description: string;
-    icon: LucideIcon;
+    icon: string;
 }
 
 const CATEGORY_META: CategoryMeta[] = [
@@ -37,37 +29,37 @@ const CATEGORY_META: CategoryMeta[] = [
         key: 'default',
         label: '默认',
         description: '未命中其他分类时使用的默认 Provider / 模型。',
-        icon: LayoutDashboard,
+        icon: 'ph:squares-four-bold',
     },
     {
         key: 'background',
         label: '后台',
         description: '后台 / 轻量任务（如 haiku 类小模型请求），适合成本更低的模型。',
-        icon: Boxes,
+        icon: 'ph:package-bold',
     },
     {
         key: 'think',
         label: '思考',
         description: '请求包含 thinking / Plan Mode 时使用的推理能力更强的模型。',
-        icon: Brain,
+        icon: 'ph:brain-bold',
     },
     {
         key: 'longContext',
         label: '长上下文',
         description: '估算输入 token 超过阈值时使用的长上下文模型。',
-        icon: FileText,
+        icon: 'ph:file-text-bold',
     },
     {
         key: 'webSearch',
         label: 'Web 搜索',
         description: '请求 tools 中包含 web_search 时使用的模型，模型本身需支持联网。',
-        icon: Globe,
+        icon: 'ph:globe-bold',
     },
     {
         key: 'image',
         label: '图像',
         description: '请求消息中包含图片内容块时使用的视觉模型。',
-        icon: ImageIcon,
+        icon: 'ph:image-bold',
     },
 ];
 
@@ -203,10 +195,12 @@ export default function RouterConfigPanel() {
     if (!config) return null;
 
     return (
-        <div className="rounded-[12px] border border-border p-6 bg-transparent space-y-5">
-            <div className="space-y-1.5">
-                <h3 className="text-[20px] font-normal tracking-tight text-foreground">路由</h3>
-                <p className="text-[14px] text-muted-foreground leading-relaxed">
+        <div className="rounded-[24px] border border-border/40 bg-gradient-to-br from-card/60 to-transparent p-7 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] backdrop-blur-md space-y-6 animate-in fade-in duration-500 fill-mode-both">
+            <div className="space-y-2">
+                <h3 className="text-[24px] font-medium tracking-tight text-foreground flex items-center gap-2">
+                    <Icon icon="ph:git-branch-bold" className="text-primary/80" /> 路由规则
+                </h3>
+                <p className="text-[15px] text-muted-foreground/80 leading-relaxed max-w-4xl">
                     按请求特征自动分派到不同 Provider / 模型。优先级：精确模型路由 &gt; 图像 &gt; Web 搜索 &gt; 思考 &gt; 长上下文 &gt; 后台 &gt; 默认。
                 </p>
             </div>
@@ -223,43 +217,43 @@ export default function RouterConfigPanel() {
                         : target.providerId
                             ? `${target.providerLabel || target.providerId} / ${target.targetModel || '(未填模型)'}`
                             : '没有选择';
-                    const Icon = meta.icon;
 
                     return (
                         <div
                             key={meta.key}
-                            className="space-y-3 rounded-[10px] border border-border/40 bg-muted/20 p-4"
+                            className={`space-y-5 rounded-[20px] border border-border/40 p-6 bg-gradient-to-r from-muted/20 to-transparent shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] transition-all duration-300 ${target.enabled ? 'hover:border-border/80 group' : 'opacity-60 grayscale-[0.5]'}`}
                         >
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 min-w-0">
-                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-muted/30 text-muted-foreground">
-                                        <Icon className="h-4 w-4" />
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-4 min-w-0">
+                                    <div className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] transition-all duration-300 shadow-sm ${target.enabled ? 'bg-primary/10 text-primary border border-primary/20 group-hover:scale-110' : 'bg-muted/50 text-muted-foreground/50 border border-border/30'}`}>
+                                        <Icon icon={meta.icon} className="h-5 w-5" />
                                     </div>
-                                    <div className="min-w-0 space-y-1">
-                                        <p className="text-[15px] font-medium text-foreground leading-tight">{meta.label}</p>
-                                        <p className="text-[12px] text-muted-foreground leading-relaxed">{meta.description}</p>
+                                    <div className="min-w-0 space-y-1 pt-0.5">
+                                        <p className="text-[17px] font-medium text-foreground tracking-tight">{meta.label}</p>
+                                        <p className="text-[13px] text-muted-foreground/80 leading-relaxed">{meta.description}</p>
                                     </div>
                                 </div>
                                 <Switch
                                     checked={target.enabled}
                                     onCheckedChange={(checked) => void updateCategory(meta.key, { enabled: checked })}
+                                    className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_rgba(var(--primary),0.5)]"
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-[1.4px]">
+                            <div className={`space-y-2.5 transition-opacity duration-300 ${target.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                                <label className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-[1.5px] ml-1">
                                     Provider, 模型
                                 </label>
                                 <Select
                                     value={hasCurrentInList ? currentValue : EMPTY_OPTION}
                                     onValueChange={(value) => void handleSelectCombo(meta.key, value)}
                                 >
-                                    <SelectTrigger className="h-10 w-full rounded-[8px] border-border/50 bg-muted/60 text-[14px]">
+                                    <SelectTrigger className="h-11 w-full rounded-xl border-border/50 bg-background/50 backdrop-blur-sm text-[14px] shadow-sm focus-visible:ring-primary/30 transition-colors hover:border-border/80">
                                         <SelectValue placeholder="没有选择">
                                             {currentDisplayLabel}
                                         </SelectValue>
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="backdrop-blur-md bg-background/90 border-border/40">
                                         <SelectItem value={EMPTY_OPTION}>没有选择</SelectItem>
                                         {comboItems.map((item) => (
                                             <SelectItem key={item.value} value={item.value}>
@@ -276,8 +270,8 @@ export default function RouterConfigPanel() {
                             </div>
 
                             {meta.key === 'longContext' ? (
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-[1.4px]">
+                                <div className={`space-y-2.5 pt-2 border-t border-border/20 transition-opacity duration-300 ${target.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                                    <label className="text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-[1.5px] ml-1">
                                         上下文阈值 (tokens)
                                     </label>
                                     <Input
@@ -285,9 +279,9 @@ export default function RouterConfigPanel() {
                                         min={1}
                                         value={router.longContextThreshold}
                                         onChange={(event) => void updateThreshold(event.target.value)}
-                                        className="h-10 text-[14px] font-mono bg-muted/60 border-border/50 rounded-[8px]"
+                                        className="h-11 text-[15px] font-mono bg-background/50 border-border/50 rounded-xl backdrop-blur-sm shadow-sm focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                     />
-                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    <p className="text-[12px] text-muted-foreground/80 leading-relaxed font-medium mt-1.5">
                                         估算 input 超过该值时命中长上下文分类。默认 60000。
                                     </p>
                                 </div>
