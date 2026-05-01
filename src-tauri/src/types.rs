@@ -66,7 +66,8 @@ pub struct RouterTarget {
 
 pub const DEFAULT_LONG_CONTEXT_THRESHOLD: u32 = 60_000;
 pub const DEFAULT_PROXY_PORT: u16 = 5055;
-pub const DEFAULT_TEST_PROMPT: &str = "请用一句话回复“测试成功”。";
+pub const LEGACY_DEFAULT_TEST_PROMPT: &str = "请用一句话回复“测试成功”。";
+pub const DEFAULT_TEST_PROMPT: &str = "今天星期几？";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -263,6 +264,26 @@ pub struct TestProviderModelResponse {
     pub latency_ms: u128,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchProviderModelsRequest {
+    pub provider_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchProviderModelsResponse {
+    pub ok: bool,
+    pub provider_id: String,
+    pub provider_label: String,
+    pub models: Vec<String>,
+    pub latency_ms: u128,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

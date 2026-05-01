@@ -1,6 +1,6 @@
 [package]
 name = "claude-proxy"
-version = "1.0.0"
+version = "1.0.1"
 description = "Claude Proxy desktop app"
 authors = ["leo"]
 edition = "2021"

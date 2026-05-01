@@ -224,6 +224,7 @@ pub fn run() {
             commands::restart_proxy,
             commands::get_proxy_status,
             commands::test_provider_model,
+            commands::fetch_provider_models,
             commands::release_port_process,
             commands::import_config,
             commands::export_config,

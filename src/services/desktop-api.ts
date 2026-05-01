@@ -3,8 +3,11 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
     DEFAULT_PROXY_PORT,
     DEFAULT_TEST_PROMPT,
+    normalizeDefaultTestPrompt,
     createDefaultRouterConfig,
     type AppConfig,
+    type FetchProviderModelsRequest,
+    type FetchProviderModelsResponse,
     type LegacyMappingType,
     type ProviderConfigData,
     type TestProviderModelRequest,
@@ -99,6 +102,11 @@ function normalizeBrowserConfig(value: Partial<AppConfig> | null | undefined): A
         ...providers,
         customProviders: Array.isArray(providers.customProviders) ? providers.customProviders : [],
     } as AppConfig['providers'];
+    const normalizedSettings = {
+        ...fallback.settings,
+        ...(config.settings || {}),
+    };
+    normalizedSettings.defaultTestPrompt = normalizeDefaultTestPrompt(normalizedSettings.defaultTestPrompt);
 
     return {
         ...fallback,
@@ -108,7 +116,7 @@ function normalizeBrowserConfig(value: Partial<AppConfig> | null | undefined): A
         globalModels: Array.isArray(config.globalModels) ? config.globalModels : fallback.globalModels,
         modelRoutes: Array.isArray(config.modelRoutes) ? config.modelRoutes : fallback.modelRoutes,
         providers: normalizedProviders,
-        settings: { ...fallback.settings, ...(config.settings || {}) },
+        settings: normalizedSettings,
     };
 }
 
@@ -264,6 +272,16 @@ function createBrowserAPI() {
                 error: 'Web 预览模式无法直连上游，请在桌面模式测试真实请求',
             };
         },
+        async fetchProviderModels(request: FetchProviderModelsRequest): Promise<FetchProviderModelsResponse> {
+            return {
+                ok: false,
+                providerId: request.providerId,
+                providerLabel: request.providerId,
+                models: [],
+                latencyMs: 0,
+                error: 'Web 预览模式无法直连上游，请在桌面模式获取模型列表',
+            };
+        },
         async exportConfig() {
             try {
                 return { success: true, path: downloadBrowserConfig() };
@@ -404,6 +422,9 @@ function createDesktopAPI() {
         },
         async testProviderModel(request: TestProviderModelRequest) {
             return invoke<TestProviderModelResponse>('test_provider_model', { request });
+        },
+        async fetchProviderModels(request: FetchProviderModelsRequest) {
+            return invoke<FetchProviderModelsResponse>('fetch_provider_models', { request });
         },
         async exportConfig() {
             try {

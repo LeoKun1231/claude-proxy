@@ -1,6 +1,13 @@
 export type LegacyMappingType = 'main' | 'haiku';
 export const DEFAULT_PROXY_PORT = 5055;
-export const DEFAULT_TEST_PROMPT = '请用一句话回复“测试成功”。';
+export const LEGACY_DEFAULT_TEST_PROMPT = '请用一句话回复“测试成功”。';
+export const DEFAULT_TEST_PROMPT = '今天星期几？';
+
+export function normalizeDefaultTestPrompt(value: unknown) {
+    const prompt = typeof value === 'string' ? value.trim() : '';
+    if (!prompt || prompt === LEGACY_DEFAULT_TEST_PROMPT) return DEFAULT_TEST_PROMPT;
+    return prompt;
+}
 
 export type RouterCategoryKey =
     | 'default'
@@ -57,6 +64,20 @@ export interface TestProviderModelResponse {
     model: string;
     latencyMs: number;
     output?: string;
+    error?: string;
+    statusCode?: number;
+}
+
+export interface FetchProviderModelsRequest {
+    providerId: string;
+}
+
+export interface FetchProviderModelsResponse {
+    ok: boolean;
+    providerId: string;
+    providerLabel: string;
+    models: string[];
+    latencyMs: number;
     error?: string;
     statusCode?: number;
 }

@@ -1,6 +1,6 @@
 {
   "name": "claude-proxy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Claude API 代理桌面客户端 - 支持多 Provider 模型切换",
   "scripts": {
     "dev": "tauri dev",

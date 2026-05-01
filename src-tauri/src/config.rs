@@ -10,7 +10,8 @@ use serde_json::{json, Map, Value};
 use crate::types::{
     AppConfig, CustomHeader, CustomProviderData, LegacyMapping, ModelRoute, ProviderConfigData,
     Providers, RouterConfig, RouterTarget, Settings, DEFAULT_LONG_CONTEXT_THRESHOLD,
-    DEFAULT_PROXY_PORT, DEFAULT_TEST_PROMPT, ROUTING_MODE_GATEWAY, ROUTING_MODE_ROUTES,
+    DEFAULT_PROXY_PORT, DEFAULT_TEST_PROMPT, LEGACY_DEFAULT_TEST_PROMPT, ROUTING_MODE_GATEWAY,
+    ROUTING_MODE_ROUTES,
 };
 
 const CURRENT_CONFIG_VERSION: u32 = 6;
@@ -208,11 +209,10 @@ fn normalize_config_value(value: &Value) -> AppConfig {
             )
             .unwrap_or(DEFAULT_PROXY_PORT),
             theme: normalize_theme(merged.get("settings").and_then(|value| value.get("theme"))),
-            default_test_prompt: normalize_string(
+            default_test_prompt: normalize_default_test_prompt(
                 merged
                     .get("settings")
                     .and_then(|value| value.get("defaultTestPrompt")),
-                DEFAULT_TEST_PROMPT,
             ),
             gateway_model_order: normalize_string_array(
                 merged
@@ -249,6 +249,15 @@ fn normalize_string(value: Option<&Value>, fallback: &str) -> String {
         .filter(|item| !item.is_empty())
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| fallback.to_string())
+}
+
+fn normalize_default_test_prompt(value: Option<&Value>) -> String {
+    let prompt = normalize_string(value, DEFAULT_TEST_PROMPT);
+    if prompt == LEGACY_DEFAULT_TEST_PROMPT {
+        DEFAULT_TEST_PROMPT.to_string()
+    } else {
+        prompt
+    }
 }
 
 fn normalize_string_array(value: Option<&Value>) -> Vec<String> {

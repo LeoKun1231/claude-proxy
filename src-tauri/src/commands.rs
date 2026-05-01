@@ -12,7 +12,8 @@ use crate::{
     config::{get_available_targets as config_get_available_targets, ConfigStore},
     proxy::ProxyManager,
     types::{
-        ConfigUpdatedPayload, ProxyCommandResult, ProxyStatusPayload, TestProviderModelRequest,
+        ConfigUpdatedPayload, FetchProviderModelsRequest, FetchProviderModelsResponse,
+        ProxyCommandResult, ProxyStatusPayload, TestProviderModelRequest,
         TestProviderModelResponse,
     },
 };
@@ -361,6 +362,14 @@ pub async fn test_provider_model(
     request: TestProviderModelRequest,
 ) -> Result<TestProviderModelResponse, String> {
     Ok(state.proxy_manager.test_provider_model(request).await)
+}
+
+#[tauri::command]
+pub async fn fetch_provider_models(
+    state: State<'_, DesktopState>,
+    request: FetchProviderModelsRequest,
+) -> Result<FetchProviderModelsResponse, String> {
+    Ok(state.proxy_manager.fetch_provider_models(request).await)
 }
 
 #[tauri::command]

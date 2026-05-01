@@ -15,7 +15,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import type { CustomProviderData, ModelRoute, TestProviderModelResponse } from '../types/config';
-import { DEFAULT_TEST_PROMPT } from '../types/config';
+import { DEFAULT_TEST_PROMPT, normalizeDefaultTestPrompt } from '../types/config';
 
 interface EditingModelState {
     providerId: string;
@@ -212,7 +212,7 @@ export default function ActiveProviderSwitcher() {
             Array.isArray(cfg.providers?.customProviders) ? cfg.providers.customProviders : []
         );
         const enabledProviders = customProviders.filter(provider => provider.enabled);
-        const defaultPrompt = cfg.settings?.defaultTestPrompt?.trim() || DEFAULT_TEST_PROMPT;
+        const defaultPrompt = normalizeDefaultTestPrompt(cfg.settings?.defaultTestPrompt);
         const modelOrder = Array.isArray(cfg.settings?.gatewayModelOrder) ? cfg.settings.gatewayModelOrder : [];
         setProviders(customProviders);
         setGatewayModelOrder(modelOrder);

@@ -2,7 +2,14 @@
 
 // 扩展 CSS 属性类型以支持 Electron 特有属性
 import 'react';
-import type { AppConfig, LegacyMappingType, TestProviderModelRequest, TestProviderModelResponse } from './types/config';
+import type {
+    AppConfig,
+    FetchProviderModelsRequest,
+    FetchProviderModelsResponse,
+    LegacyMappingType,
+    TestProviderModelRequest,
+    TestProviderModelResponse,
+} from './types/config';
 import type { TokenUsagePayload, TokenUsageRecord } from './types/token-usage';
 
 declare module 'react' {
@@ -27,6 +34,7 @@ interface ElectronAPI {
     getProxyStatus: () => Promise<{ running: boolean; port: number }>;
     restartProxy: () => Promise<{ success: boolean; port: number; error?: string; alreadyRunning?: boolean }>;
     testProviderModel: (request: TestProviderModelRequest) => Promise<TestProviderModelResponse>;
+    fetchProviderModels: (request: FetchProviderModelsRequest) => Promise<FetchProviderModelsResponse>;
     releasePortProcess: (port?: number) => Promise<{
         success: boolean;
         port: number;

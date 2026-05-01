@@ -8,6 +8,12 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Switch } from './ui/switch';
+import {
+    DEFAULT_TEST_PROMPT,
+    normalizeDefaultTestPrompt,
+    type FetchProviderModelsResponse,
+    type TestProviderModelResponse,
+} from '../types/config';
 
 interface CustomHeader {
     name: string;
@@ -23,6 +29,39 @@ interface CustomProvider {
     baseUrl: string;
     customHeaders: CustomHeader[];
     stripFields?: string[];
+}
+
+interface TestState {
+    status: 'idle' | 'loading' | 'success' | 'error';
+    message?: string;
+    latencyMs?: number;
+}
+
+interface FetchModelsState {
+    status: 'idle' | 'loading' | 'success' | 'error';
+    message?: string;
+    latencyMs?: number;
+}
+
+function createTestKey(providerId: string, model: string) {
+    return `${providerId}::${model}`;
+}
+
+function summarizeTestResult(result: TestProviderModelResponse) {
+    if (result.ok) {
+        return result.output?.trim() || '测试成功';
+    }
+    return result.error?.trim() || '测试失败';
+}
+
+function summarizeFetchResult(result: FetchProviderModelsResponse, addedCount: number) {
+    if (!result.ok) {
+        return result.error?.trim() || '获取模型失败';
+    }
+    if (addedCount > 0) {
+        return `已获取 ${result.models.length} 个模型，新增 ${addedCount} 个`;
+    }
+    return `远程返回 ${result.models.length} 个模型，均已存在`;
 }
 
 function normalizeProvider(provider: CustomProvider): CustomProvider {
@@ -45,6 +84,11 @@ export default function ProviderConfig() {
     const [modelDrafts, setModelDrafts] = useState<Record<string, string>>({});
     const [draggingProviderId, setDraggingProviderId] = useState<string | null>(null);
     const [sortBy, setSortBy] = useState<string>('custom');
+    const [defaultTestPrompt, setDefaultTestPrompt] = useState(DEFAULT_TEST_PROMPT);
+    const [testModelDrafts, setTestModelDrafts] = useState<Record<string, string>>({});
+    const [testPromptDrafts, setTestPromptDrafts] = useState<Record<string, string>>({});
+    const [testStates, setTestStates] = useState<Record<string, TestState>>({});
+    const [fetchModelStates, setFetchModelStates] = useState<Record<string, FetchModelsState>>({});
     const timerRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -53,7 +97,9 @@ export default function ProviderConfig() {
             const cfg = await window.electronAPI.getAllConfig();
             const raw = (cfg.providers?.customProviders || []) as CustomProvider[];
             const normalized = raw.map(normalizeProvider);
+            const defaultPrompt = normalizeDefaultTestPrompt(cfg.settings?.defaultTestPrompt);
             setProviders(normalized);
+            setDefaultTestPrompt(defaultPrompt);
             if (raw.some((provider) => (provider.stripFields || []).length > 0)) {
                 queueSave(normalized);
             }
@@ -67,6 +113,8 @@ export default function ProviderConfig() {
                 await window.electronAPI?.setConfig('providers.customProviders', next);
             } catch (e: any) {
                 toast.error(e?.message || '保存失败');
+            } finally {
+                timerRef.current = null;
             }
         }, 400);
     };
@@ -182,7 +230,112 @@ export default function ProviderConfig() {
             delete drafts[id];
             return drafts;
         });
+        setTestModelDrafts(prev => {
+            const drafts = { ...prev };
+            delete drafts[id];
+            return drafts;
+        });
+        setTestPromptDrafts(prev => {
+            const drafts = { ...prev };
+            delete drafts[id];
+            return drafts;
+        });
+        setTestStates(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach(key => {
+                if (key.startsWith(`${id}::`)) delete next[key];
+            });
+            return next;
+        });
+        setFetchModelStates(prev => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
         toast.success('服务商已移除');
+    };
+
+    const sendTestRequest = async (provider: CustomProvider, model: string) => {
+        const key = createTestKey(provider.id, model);
+        const prompt = (testPromptDrafts[provider.id] || '').trim() || defaultTestPrompt.trim() || DEFAULT_TEST_PROMPT;
+        setTestStates(prev => ({ ...prev, [key]: { status: 'loading' } }));
+        try {
+            const api = window.electronAPI;
+            if (!api?.testProviderModel) {
+                throw new Error('当前环境不支持测试请求');
+            }
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+                timerRef.current = null;
+            }
+            await api.setConfig('providers.customProviders', providers);
+            const result = await api.testProviderModel({
+                providerId: provider.id,
+                model,
+                prompt,
+            });
+            setTestStates(prev => ({
+                ...prev,
+                [key]: {
+                    status: result.ok ? 'success' : 'error',
+                    message: summarizeTestResult(result),
+                    latencyMs: result.latencyMs,
+                },
+            }));
+        } catch (e: any) {
+            setTestStates(prev => ({
+                ...prev,
+                [key]: {
+                    status: 'error',
+                    message: e?.message || '测试请求失败',
+                },
+            }));
+        }
+    };
+
+    const fetchRemoteModels = async (provider: CustomProvider) => {
+        setFetchModelStates(prev => ({ ...prev, [provider.id]: { status: 'loading' } }));
+        try {
+            const api = window.electronAPI;
+            if (!api?.fetchProviderModels) {
+                throw new Error('当前环境不支持远程获取模型');
+            }
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+                timerRef.current = null;
+            }
+            await api.setConfig('providers.customProviders', providers);
+            const result = await api.fetchProviderModels({ providerId: provider.id });
+            let addedCount = 0;
+            let nextProviders = providers;
+            if (result.ok) {
+                nextProviders = providers.map(item => {
+                    if (item.id !== provider.id) return item;
+                    const merged = mergeModels(item.models, result.models);
+                    addedCount = merged.length - item.models.length;
+                    return { ...item, models: merged };
+                });
+                setProviders(nextProviders);
+                await api.setConfig('providers.customProviders', nextProviders);
+                toast.success(summarizeFetchResult(result, addedCount));
+            }
+            setFetchModelStates(prev => ({
+                ...prev,
+                [provider.id]: {
+                    status: result.ok ? 'success' : 'error',
+                    message: summarizeFetchResult(result, addedCount),
+                    latencyMs: result.latencyMs,
+                },
+            }));
+        } catch (e: any) {
+            setFetchModelStates(prev => ({
+                ...prev,
+                [provider.id]: {
+                    status: 'error',
+                    message: e?.message || '获取模型失败',
+                },
+            }));
+        }
     };
 
     const moveProvider = (fromId: string, toId: string) => {
@@ -291,7 +444,27 @@ export default function ProviderConfig() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {sortedProviders.map(provider => (
+                    {sortedProviders.map(provider => {
+                        const selectedDraftModel = testModelDrafts[provider.id] || '';
+                        const selectedTestModel = provider.models.includes(selectedDraftModel)
+                            ? selectedDraftModel
+                            : provider.models[0] || '';
+                        const testKey = createTestKey(provider.id, selectedTestModel);
+                        const testState = testStates[testKey] || { status: 'idle' as const };
+                        const testPrompt = testPromptDrafts[provider.id] || '';
+                        const testDisabledReason = !provider.enabled
+                            ? '服务商已停用，无法发送测试。'
+                            : !provider.baseUrl
+                                ? '未配置代理地址，无法发送测试。'
+                                : !selectedTestModel
+                                    ? '请先添加模型。'
+                                    : '';
+                        const disableTest = testState.status === 'loading' || Boolean(testDisabledReason);
+                        const fetchModelState = fetchModelStates[provider.id] || { status: 'idle' as const };
+                        const fetchModelsDisabledReason = !provider.baseUrl ? '未配置代理地址，无法获取模型。' : '';
+                        const disableFetchModels = fetchModelState.status === 'loading' || Boolean(fetchModelsDisabledReason);
+
+                        return (
                         <div
                             key={provider.id}
                             onDragOver={onProviderDragOver}
@@ -388,6 +561,18 @@ export default function ProviderConfig() {
                                     <Button type="button" size="sm" variant="outline" className="shrink-0 h-9 px-4 border-border/60 rounded-lg shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all font-medium text-[12px]" onClick={() => addModels(provider.id)}>
                                         <Icon icon="ph:plus-bold" className="w-3.5 h-3.5 mr-1" /> 添加模型
                                     </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="shrink-0 h-9 px-4 border-border/60 rounded-lg shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:bg-secondary/20 hover:border-secondary/30 transition-all font-medium text-[12px]"
+                                        disabled={disableFetchModels}
+                                        title={fetchModelsDisabledReason || undefined}
+                                        onClick={() => void fetchRemoteModels(provider)}
+                                    >
+                                        {fetchModelState.status === 'loading' ? <Icon icon="ph:spinner-gap-bold" className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Icon icon="ph:cloud-arrow-down-bold" className="w-3.5 h-3.5 mr-1" />}
+                                        远程获取
+                                    </Button>
                                 </div>
 
                                 {provider.models.length > 0 ? (
@@ -411,6 +596,114 @@ export default function ProviderConfig() {
                                         暂无模型
                                     </div>
                                 )}
+
+                                {fetchModelState.status !== 'idle' ? (
+                                    <div
+                                        className={cn(
+                                            'rounded-lg border px-3 py-2 text-[12px] leading-relaxed',
+                                            fetchModelState.status === 'success'
+                                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                                                : fetchModelState.status === 'error'
+                                                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                                                    : 'border-border/50 bg-muted/30 text-muted-foreground'
+                                        )}
+                                    >
+                                        {fetchModelState.status === 'loading' ? '正在从远程获取模型…' : fetchModelState.message}
+                                        {fetchModelState.latencyMs !== undefined ? (
+                                            <span className="ml-2 font-mono text-[12px] opacity-75">{fetchModelState.latencyMs}ms</span>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            <div className="space-y-3 pt-4 border-t border-border/20">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center">
+                                        <label className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-[1px] ml-1 flex items-center gap-1.5">
+                                            服务商测试
+                                        </label>
+                                    </div>
+                                    {testState.status !== 'idle' ? (
+                                        <Badge
+                                            variant="outline"
+                                            className={cn(
+                                                'h-5 px-2 rounded-full font-mono text-[10px] border-border/50',
+                                                testState.status === 'success'
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                                    : testState.status === 'error'
+                                                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                                        : 'bg-muted/20 text-muted-foreground'
+                                            )}
+                                        >
+                                            {testState.status === 'loading'
+                                                ? '测试中'
+                                                : testState.latencyMs !== undefined
+                                                    ? `${testState.latencyMs}ms`
+                                                    : testState.status === 'success'
+                                                        ? '成功'
+                                                        : '失败'}
+                                        </Badge>
+                                    ) : null}
+                                </div>
+
+                                <div className="flex flex-col gap-2 sm:flex-row">
+                                    <Select
+                                        value={selectedTestModel}
+                                        onValueChange={(value) => setTestModelDrafts(prev => ({ ...prev, [provider.id]: value || '' }))}
+                                        disabled={provider.models.length === 0}
+                                    >
+                                        <SelectTrigger size="sm" className="h-9 w-full border-border/50 bg-background/50 text-[12px] font-mono sm:w-[190px]">
+                                            <SelectValue placeholder="选择模型" />
+                                        </SelectTrigger>
+                                        <SelectContent side="bottom" align="start" className="rounded-xl border-border/40 bg-background/90 backdrop-blur-md">
+                                            {provider.models.map(model => (
+                                                <SelectItem key={model} value={model} className="text-[12px] font-mono cursor-pointer rounded-lg">
+                                                    {model}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Input
+                                        value={testPrompt}
+                                        onChange={event => setTestPromptDrafts(prev => ({ ...prev, [provider.id]: event.target.value }))}
+                                        placeholder={defaultTestPrompt}
+                                        className="h-9 flex-1 text-[13px] bg-background/50 backdrop-blur-sm border-border/50 rounded-lg focus-visible:ring-primary/30 transition-colors hover:border-border/80"
+                                    />
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="shrink-0 h-9 px-4 border-border/60 rounded-lg shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all font-medium text-[12px]"
+                                        disabled={disableTest}
+                                        title={testDisabledReason || undefined}
+                                        onClick={() => selectedTestModel && void sendTestRequest(provider, selectedTestModel)}
+                                    >
+                                        {testState.status === 'loading' ? <Icon icon="ph:spinner-gap-bold" className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Icon icon="ph:paper-plane-right-bold" className="w-3.5 h-3.5 mr-1" />}
+                                        测试
+                                    </Button>
+                                </div>
+
+                                {testState.status !== 'idle' ? (
+                                    <div
+                                        className={cn(
+                                            'rounded-lg border px-3 py-2 text-[12px] leading-relaxed',
+                                            testState.status === 'success'
+                                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                                                : testState.status === 'error'
+                                                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                                                    : 'border-border/50 bg-muted/30 text-muted-foreground'
+                                        )}
+                                    >
+                                        {testState.status === 'loading' ? '正在发送测试请求…' : testState.message}
+                                        {testState.latencyMs !== undefined ? (
+                                            <span className="ml-2 font-mono text-[12px] opacity-75">{testState.latencyMs}ms</span>
+                                        ) : null}
+                                    </div>
+                                ) : testDisabledReason ? (
+                                    <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
+                                        {testDisabledReason}
+                                    </div>
+                                ) : null}
                             </div>
 
                             <div className="space-y-3 pt-4 border-t border-border/20">
@@ -465,7 +758,8 @@ export default function ProviderConfig() {
                                 </Button>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>

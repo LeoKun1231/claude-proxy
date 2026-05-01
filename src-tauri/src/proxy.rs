@@ -26,9 +26,10 @@ use crate::{
     config::{ConfigStore, BUILTIN_PROVIDER_KEYS},
     openai,
     types::{
-        AppConfig, ConfigUpdatedPayload, CustomHeader, ProxyCommandResult, ProxyLogPayload,
-        ProxyStatusPayload, RouterTarget, TestProviderModelRequest, TestProviderModelResponse,
-        TokenUsagePayload, TokenUsageRecord, ROUTING_MODE_ROUTES,
+        AppConfig, ConfigUpdatedPayload, CustomHeader, FetchProviderModelsRequest,
+        FetchProviderModelsResponse, ProxyCommandResult, ProxyLogPayload, ProxyStatusPayload,
+        RouterTarget, TestProviderModelRequest, TestProviderModelResponse, TokenUsagePayload,
+        TokenUsageRecord, ROUTING_MODE_ROUTES,
     },
 };
 
@@ -557,6 +558,135 @@ impl ProxyManager {
         )
     }
 
+    pub async fn fetch_provider_models(
+        &self,
+        request: FetchProviderModelsRequest,
+    ) -> FetchProviderModelsResponse {
+        let started = Instant::now();
+        let provider_id = request.provider_id.trim().to_string();
+        if provider_id.is_empty() {
+            return fetch_models_response(
+                false,
+                provider_id,
+                String::new(),
+                Vec::new(),
+                started,
+                Some("providerId 不能为空".to_string()),
+                None,
+            );
+        }
+
+        let config = self.config_store.get_config();
+        let provider = match build_provider_config(&config, &provider_id, "", None, None, None) {
+            Ok(provider) => provider,
+            Err(message) => {
+                return fetch_models_response(
+                    false,
+                    provider_id,
+                    String::new(),
+                    Vec::new(),
+                    started,
+                    Some(message),
+                    None,
+                )
+            }
+        };
+
+        if provider.base_url.trim().is_empty() {
+            return fetch_models_response(
+                false,
+                provider_id,
+                provider.provider_label,
+                Vec::new(),
+                started,
+                Some("Provider 未配置代理地址".to_string()),
+                None,
+            );
+        }
+
+        let target_url = models_url(&provider.base_url);
+        let anthropic_compat =
+            openai::is_anthropic_compatible_provider(&provider.provider_id, &provider.base_url);
+        let mut builder = self.client.get(&target_url);
+        if !provider.api_key.is_empty() {
+            builder = builder
+                .header("x-api-key", &provider.api_key)
+                .bearer_auth(&provider.api_key);
+        }
+        if anthropic_compat {
+            builder = builder.header("anthropic-version", "2023-06-01");
+        }
+        for header in &provider.custom_headers {
+            let name = header.name.trim();
+            if name.is_empty() || skip_test_header(name) {
+                continue;
+            }
+            builder = builder.header(name, header.value.as_str());
+        }
+
+        let response = match builder.send().await {
+            Ok(response) => response,
+            Err(err) => {
+                let hint = build_proxy_error_hint(&err, &provider.base_url);
+                let message = if hint.is_empty() {
+                    err.to_string()
+                } else {
+                    format!("{} | {}", err, hint)
+                };
+                return fetch_models_response(
+                    false,
+                    provider.provider_id,
+                    provider.provider_label,
+                    Vec::new(),
+                    started,
+                    Some(message),
+                    None,
+                );
+            }
+        };
+
+        let status = response.status();
+        let status_code = status.as_u16();
+        let text = response.text().await.unwrap_or_default();
+        if !status.is_success() {
+            return fetch_models_response(
+                false,
+                provider.provider_id,
+                provider.provider_label,
+                Vec::new(),
+                started,
+                Some(format!(
+                    "上游返回 HTTP {status_code}: {}",
+                    truncate_text(text.trim(), 500)
+                )),
+                Some(status_code),
+            );
+        }
+
+        let models = extract_remote_models(&text);
+        if models.is_empty() {
+            return fetch_models_response(
+                false,
+                provider.provider_id,
+                provider.provider_label,
+                Vec::new(),
+                started,
+                Some("远程响应中没有可用模型".to_string()),
+                Some(status_code),
+            );
+        }
+
+        fetch_models_response(
+            true,
+            provider.provider_id,
+            provider.provider_label,
+            models,
+            started,
+            None,
+            Some(status_code),
+        )
+    }
+
     pub async fn stop(&self) {
         if let Ok(mut guard) = self.shutdown_tx.lock() {
             if let Some(tx) = guard.take() {
@@ -606,6 +736,26 @@ fn test_response(
         model,
         latency_ms: started.elapsed().as_millis(),
         output,
+        error,
+        status_code,
+    }
+}
+
+fn fetch_models_response(
+    ok: bool,
+    provider_id: String,
+    provider_label: String,
+    models: Vec<String>,
+    started: Instant,
+    error: Option<String>,
+    status_code: Option<u16>,
+) -> FetchProviderModelsResponse {
+    FetchProviderModelsResponse {
+        ok,
+        provider_id,
+        provider_label,
+        models,
+        latency_ms: started.elapsed().as_millis(),
         error,
         status_code,
     }
@@ -695,6 +845,20 @@ fn test_messages_url(base_url: &str) -> String {
     }
 }
 
+fn models_url(base_url: &str) -> String {
+    let base = normalize_base_url_for_docker(base_url)
+        .trim_end_matches('/')
+        .to_string();
+    let lower = base.to_lowercase();
+    if lower.ends_with("/models") {
+        base
+    } else if lower.ends_with("/v1") {
+        format!("{base}/models")
+    } else {
+        format!("{base}/v1/models")
+    }
+}
+
 fn skip_test_header(name: &str) -> bool {
     matches!(
         name.trim().to_ascii_lowercase().as_str(),
@@ -754,6 +918,58 @@ fn extract_test_output(raw: &str) -> String {
     }
 
     truncate_text(trimmed, 500)
+}
+
+fn extract_remote_models(raw: &str) -> Vec<String> {
+    let Ok(value) = serde_json::from_str::<Value>(raw.trim()) else {
+        return Vec::new();
+    };
+    let mut models = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    collect_remote_models(&value, &mut models, &mut seen);
+    models
+}
+
+fn collect_remote_models(
+    value: &Value,
+    models: &mut Vec<String>,
+    seen: &mut std::collections::HashSet<String>,
+) {
+    match value {
+        Value::String(text) => push_remote_model(models, seen, text),
+        Value::Array(items) => {
+            for item in items {
+                collect_remote_models(item, models, seen);
+            }
+        }
+        Value::Object(map) => {
+            for key in ["data", "models", "items"] {
+                if let Some(items) = map.get(key) {
+                    collect_remote_models(items, models, seen);
+                    return;
+                }
+            }
+            for key in ["id", "model", "name"] {
+                if let Some(text) = map.get(key).and_then(Value::as_str) {
+                    push_remote_model(models, seen, text);
+                    return;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn push_remote_model(
+    models: &mut Vec<String>,
+    seen: &mut std::collections::HashSet<String>,
+    raw: &str,
+) {
+    let model = raw.trim();
+    if model.is_empty() || !seen.insert(model.to_string()) {
+        return;
+    }
+    models.push(model.to_string());
 }
 
 fn text_from_content_value(value: &Value) -> String {
