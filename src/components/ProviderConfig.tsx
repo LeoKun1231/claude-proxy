@@ -278,7 +278,7 @@ export default function ProviderConfig() {
                     </Button>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                     {sortedProviders.map(provider => (
                         <div
                             key={provider.id}
@@ -313,7 +313,7 @@ export default function ProviderConfig() {
                                 </Button>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 ml-10">
+                            <div className="grid grid-cols-1 gap-3 pt-1">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-[1px] ml-1">基础 API 地址</label>
                                     <Input
@@ -335,7 +335,7 @@ export default function ProviderConfig() {
                                 </div>
                             </div>
 
-                            <div className="space-y-2 pt-2 border-t border-border/20 ml-10">
+                            <div className="space-y-3 pt-4 border-t border-border/20">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="space-y-0.5">
                                         <label className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-[1px] ml-1 flex items-center gap-1.5">
@@ -386,7 +386,7 @@ export default function ProviderConfig() {
                                 )}
                             </div>
 
-                            <div className="space-y-3 pt-2 border-t border-border/20 ml-10">
+                            <div className="space-y-3 pt-4 border-t border-border/20">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="space-y-0.5">
                                         <label className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-[1px] ml-1">自定义请求头</label>
@@ -406,15 +406,15 @@ export default function ProviderConfig() {
                                                 <Input
                                                     value={header.name}
                                                     onChange={e => updateCustomHeader(provider.id, index, 'name', e.target.value)}
-                                                    placeholder="Header 名称"
+                                                    placeholder="Key"
                                                     className="h-9 flex-1 text-[13px] font-mono bg-background/50 backdrop-blur-sm border-border/50 rounded-lg focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                                 />
                                                 <span className="text-muted-foreground/40 font-mono">:</span>
                                                 <Input
                                                     value={header.value}
                                                     onChange={e => updateCustomHeader(provider.id, index, 'value', e.target.value)}
-                                                    placeholder="Header 值"
-                                                    className="h-9 flex-[1.5] text-[13px] font-mono bg-background/50 backdrop-blur-sm border-border/50 rounded-lg focus-visible:ring-primary/30 transition-colors hover:border-border/80"
+                                                    placeholder="Value"
+                                                    className="h-9 flex-1 text-[13px] font-mono bg-background/50 backdrop-blur-sm border-border/50 rounded-lg focus-visible:ring-primary/30 transition-colors hover:border-border/80"
                                                 />
                                                 <Button
                                                     variant="ghost"

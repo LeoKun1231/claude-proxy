@@ -205,7 +205,7 @@ export default function RouterConfigPanel() {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {CATEGORY_META.map((meta) => {
                     const target = router[meta.key];
                     const currentValue = target.providerId
