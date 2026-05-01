@@ -337,13 +337,10 @@ export default function ProviderConfig() {
 
                             <div className="space-y-3 pt-4 border-t border-border/20">
                                 <div className="flex items-start justify-between gap-3">
-                                    <div className="space-y-0.5">
+                                    <div className="flex items-center">
                                         <label className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-[1px] ml-1 flex items-center gap-1.5">
                                             支持的模型
                                         </label>
-                                        <p className="text-[12px] text-muted-foreground/70 leading-relaxed max-w-2xl ml-1">
-                                            添加后会写入当前服务商的 `models`，并自动进入路由页的目标模型候选。
-                                        </p>
                                     </div>
                                     <Badge variant="outline" className="h-5 px-2 rounded-full font-mono text-[10px] bg-muted/20 border-border/50">
                                         {provider.models.length} 项
@@ -380,19 +377,16 @@ export default function ProviderConfig() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-4 text-center text-[12px] font-medium text-muted-foreground/60">
-                                        暂无模型。添加后，路由页会直接复用这些模型作为目标候选。
+                                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-3 text-center text-[12px] font-medium text-muted-foreground/50">
+                                        暂无模型
                                     </div>
                                 )}
                             </div>
 
                             <div className="space-y-3 pt-4 border-t border-border/20">
                                 <div className="flex items-start justify-between gap-3">
-                                    <div className="space-y-0.5">
+                                    <div className="flex items-center">
                                         <label className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-[1px] ml-1">自定义请求头</label>
-                                        <p className="text-[12px] text-muted-foreground/70 leading-relaxed max-w-2xl ml-1">
-                                            转发到上游时附加的请求头。同名客户端请求头会被覆盖；不允许设置 Authorization 等保留头。
-                                        </p>
                                     </div>
                                     <Badge variant="outline" className="h-5 px-2 rounded-full font-mono text-[10px] bg-muted/20 border-border/50">
                                         {provider.customHeaders.length} 条
